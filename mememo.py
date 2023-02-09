@@ -7,15 +7,22 @@
 # Distributed under terms of the MIT license.
 # --------------------------------------------------------------------
 
+import inspect
 import os
-import sqlite3
 import shlex
-from concurrent.futures import ThreadPoolExecutor
+import sqlite3
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from functools import partial
+from pathlib import Path
 from typing import Any
 
 import discord
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
-from xeno import Injector, provide, singleton
+from xeno import SyncInjector, provide, singleton
+from xeno.color import color
 
 # --------------------------------------------------------------------
 CREATE_TOPICS_TABLE = """
@@ -28,12 +35,40 @@ create table topics (
 )
 """
 
-CREATE_SUBSCRIPTION_TABLE = """
+CREATE_SUBSCRIPTIONS_TABLE = """
 create table subscriptions (
     id integer not null primary key,
     user_id text not null
 )
 """
+
+TABLES: dict[str, str] = {
+    "topics": CREATE_TOPICS_TABLE,
+    "subscriptions": CREATE_SUBSCRIPTIONS_TABLE,
+}
+
+ADMIN_INTRO = """
+--------------------------------------
+Welcome to the Mememo admin interface.
+--------------------------------------
+"""
+
+# --------------------------------------------------------------------
+@dataclass
+class Topic:
+    id: int
+    name: str
+    script_path: Path
+    update_freq_minutes: int
+    last_updated_timestamp: datetime
+
+
+# --------------------------------------------------------------------
+@dataclass
+class Subscription:
+    topic_id: int
+    user_id: int
+
 
 # --------------------------------------------------------------------
 def env_require(name: str) -> str:
@@ -57,18 +92,18 @@ def db_table_exists(conn: sqlite3.Connection, name: str) -> bool:
 def db_init(db_filename: str) -> sqlite3.Connection:
     if not os.path.exists(db_filename):
         print("DB file doesn't exist, creating it...")
+
     conn = sqlite3.connect(db_filename)
-    if not db_table_exists(conn, "topics"):
-        print("Creating topics table...")
-        conn.execute(CREATE_TOPICS_TABLE)
-        print("Creating subscriptions table...")
-    if not db_table_exists(conn, "subscriptions"):
-        conn.execute(CREATE_SUBSCRIPTION_TABLE)
+    for table, create_ddl in TABLES.items():
+        if not db_table_exists(conn, table):
+            print(f"Creating {table} table...")
+            conn.execute(create_ddl)
+
     return conn
 
 
 # --------------------------------------------------------------------
-def db_get_topics(conn: sqlite3.Connection) -> list[str]:
+def db_list_topics(conn: sqlite3.Connection) -> list[str]:
     cur = conn.cursor()
     topics = sorted(cur.execute("select name from topics").fetchall())
     cur.close()
@@ -76,42 +111,120 @@ def db_get_topics(conn: sqlite3.Connection) -> list[str]:
 
 
 # --------------------------------------------------------------------
+def get_prefixed_methods(prefix, obj):
+    return [
+        getattr(obj, name)
+        for name in dir(obj)
+        if name.startswith(prefix) and callable(getattr(obj, name))
+    ]
+
+
+# --------------------------------------------------------------------
+class Commands:
+    @staticmethod
+    def get_prefixed_methods(prefix, obj):
+        return [
+            getattr(obj, name)
+            for name in dir(obj)
+            if name.startswith(prefix) and callable(getattr(obj, name))
+        ]
+
+    def __init__(self, obj, prefix="cmd_"):
+        self.map: dict[str, Any] = {}
+        self.prefix = prefix
+        for method in Commands.get_prefixed_methods(self.prefix, obj):
+            self.define(method)
+
+    def define(self, f):
+        self.map[f.__name__.removeprefix(self.prefix)] = f
+
+    def get(self, name) -> Any:
+        if name not in self.map:
+            raise ValueError(f"Command `{name}` is not defined.")
+        return self.map[name]
+
+    def signatures(self):
+        for key, value in self.map.items():
+            yield (key, inspect.signature(value))
+
+
+# --------------------------------------------------------------------
+class AdminCommandInterface:
+    def __init__(self, db_filename: str):
+        self.conn = db_init(db_filename)
+        self.commands = Commands(self)
+
+    def cmd_create_topic(self, topic_name, script_path):
+        if topic_name in db_list_topics(self.conn):
+            raise ValueError("Topic already exists.")
+        if not os.path.exists(script_path):
+            raise ValueError("Script path does not exist.")
+        if not os.access(script_path, os.X_OK):
+            raise ValueError("Script path is not executable.")
+
+    def cmd_quit(self):
+        bye = partial(color, fg="white", render="dim")
+        print(bye("Goodbye."))
+        sys.exit(0)
+
+    def cmd_help(self):
+        cmd = partial(color, fg="green")
+        param = partial(color, fg="cyan", render="dim")
+        for key, signature in self.commands.signatures():
+            print(f"{cmd(key)} {param(' '.join(signature.parameters))}")
+
+    def run(self):
+        prompt = partial(color, fg="yellow")
+        intro = partial(color, fg="white", render="dim")
+        error = partial(color, fg="red")
+        print(intro(ADMIN_INTRO))
+        while True:
+            try:
+                s = input(prompt("admin> "))
+                if not s:
+                    continue
+                argv = shlex.split(s)
+                self.commands.get(argv[0])(*argv[1:])
+
+            except Exception as e:
+                print(f"{error('ERROR')}: {e}")
+
+
+# --------------------------------------------------------------------
 class MememoBotClient(discord.Client):
     def __init__(self, db_filename: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.conn = db_init(db_filename)
-        self.commands: dict[str, Any] = {}
-        self._create_command_map()
+        self.commands = Commands(self)
 
     def __del__(self):
-        super().__del__()
         self.conn.close()
 
-    def _create_command_map(self):
-        self.commands["subscribe"] = self.cmd_subscribe
-        self.commands["unsubscribe"] = self.cmd_unsubscribe
-        self.commands["topics"] = self.cmd_topics
+    async def respond(self, message, text):
+        await message.channel.send(f"Hi {message.author.name}! " + text)
 
     async def cmd_topics(self, message, *args):
-        topics = db_get_topics(self.conn)
+        topics = db_list_topics(self.conn)
 
         if not topics:
-            await message.channel.send(
-                f"Hi {message.author.name}!  No topics are available to subcribe to yet."
-            )
+            await self.respond(message, "No topics are available to subscribe to yet.")
             return
 
-        await message.channel.send(
-            f"Hi {message.author.name}!  These are the available topics: {topics}"
+        await self.respond(message, f"These are the available topics: {topics}")
+
+    async def cmd_subscribe(self, message, topic):
+        await self.respond(
+            message,
+            f"I would like to subscribe you to topic {topic}, but I don't know how to do that yet.",
         )
 
-    async def cmd_subscribe(self, message, *args):
-        await message.channel.send(
-            f"{message.author.name}, I would subscribe you to topic {args[0]}, but I don't know how to do that yet."
-        )
+    async def cmd_unsubscribe(self, message, topic):
+        await self.respond(message, "I don't know how to do that yet.")
 
-    async def cmd_unsubscribe(self, message, *args):
-        pass
+    async def cmd_whoami(self, message):
+        await self.respond(
+            message, f"You are {message.author}, with id {message.author.id}"
+        )
 
     async def on_ready(self):
         print(f"{self.user} has connected to Discord!")
@@ -120,23 +233,39 @@ class MememoBotClient(discord.Client):
         if message.author == self.user:
             return
 
-        if message.content.startswith(f"<@{self.user.id}>"):
-            argv = shlex.split(message.content)[1:]
+        if self.user in message.mentions:
+            argv = [x for x in shlex.split(message.content) if x != self.user.mention]
             try:
-                cmd = argv[0]
-                if cmd not in self.commands:
-                    raise ValueError(f"I don't understand '{cmd}'.")
-                await self.commands[cmd](message, *argv[1:])
+                await self.commands.get(argv[0])(message, *argv[1:])
 
             except Exception as e:
                 await message.channel.send(f"I'm sorry, {e}")
 
 
 # --------------------------------------------------------------------
-def run_discord_client(db_filename: str, discord_access_token: str):
-    intents = discord.Intents(messages=True)
-    client = MememoBotClient(db_filename, intents=intents)
-    client.run(discord_access_token)
+class TopicRunner:
+    def __init__(self, topic: Topic, last_updated: datetime = datetime.min):
+        self.topic = topic
+
+    def run(self):
+        # TODO: Run and see if there's any output.
+        pass
+
+
+# --------------------------------------------------------------------
+class TopicUpdateService(commands.Cog):
+    def __init__(self, bot: discord.Client):
+        self.bot = bot
+        self.update_task.start()
+        self.runners: dict[str, TopicRunner] = {}
+
+    def cog_unload(self):
+        self.update_task.cancel()
+
+    @tasks.loop(minutes=5.0)
+    async def update_task(self):
+        async with self.bot.pool.acquire() as con:
+            pass
 
 
 # --------------------------------------------------------------------
@@ -145,31 +274,36 @@ class Module:
     def dotenv(self):
         load_dotenv()
 
-    @singleton
-    def db_filename(self, dotenv) -> str:
+    @provide
+    def db_filename(self, dotenv):
         return env_require("MEMEMO_DB")
 
     @provide
-    def discord_access_token(self, dotenv):
+    def access_token(self, dotenv):
         return env_require("DISCORD_TOKEN")
 
-    @provide
-    def discord_client(self, db_connection):
-        intents = discord.Intents(messages=True)
-        return MememoBotClient(db_connection, intents=intents)
+    @singleton
+    def bot(self, db_filename, access_token):
+        intents = discord.Intents(messages=True, message_content=True, typing=True)
+        bot = MememoBotClient(db_filename, intents=intents)
+        bot.run(access_token)
 
-    @provide
-    def execution(self, db_filename, discord_access_token):
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            executor.submit(lambda: run_discord_client(db_filename, discord_access_token))
+    @singleton
+    def admin(self, db_filename):
+        admin = AdminCommandInterface(db_filename)
+        admin.run()
 
 
 # --------------------------------------------------------------------
-def main():
-    injector = Injector(Module())
-    injector.require("execution")
+def main(argv):
+    injector = SyncInjector(Module())
+
+    if len(argv) > 0 and argv[0] == "admin":
+        injector.require("admin")
+    else:
+        injector.require("bot")
 
 
 # --------------------------------------------------------------------
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
