@@ -1,0 +1,3 @@
+@echo off
+create_topic test scripts/test.sh
+echo "Successfully created all topics!"

@@ -9,8 +9,9 @@
 
 import os
 import sqlite3
+from typing import Optional
 
-from mememo.domain import Topic
+from mememo.domain import Topic, UserInfo
 
 # --------------------------------------------------------------------
 CREATE_TOPICS_TABLE = """
@@ -30,9 +31,17 @@ create table subscriptions (
 )
 """
 
+CREATE_USER_INFO_TABLE = """
+create table user_info (
+    id integer not null unique,
+    username text not null
+)
+"""
+
 TABLES: dict[str, str] = {
     "topics": CREATE_TOPICS_TABLE,
     "subscriptions": CREATE_SUBSCRIPTIONS_TABLE,
+    "user_info": CREATE_USER_INFO_TABLE,
 }
 
 # --------------------------------------------------------------------
@@ -40,11 +49,19 @@ class TopicDAO:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
+    def _row_to_obj(self, row) -> Topic:
+        return Topic(*row)
+
     def list_names(self) -> list[str]:
         cur = self.conn.cursor()
         topics = sorted(cur.execute("select name from topics").fetchall())
         cur.close()
         return topics
+
+    def list(self) -> list[Topic]:
+        cur = self.conn.cursor()
+        results = cur.execute("select name, script_path, last_updated_timestamp, update_freq_minutes, id from topics").fetchall()
+        return [self._row_to_obj(row) for row in results]
 
     def create(self, topic: Topic) -> Topic:
         cur = self.conn.cursor()
@@ -54,6 +71,7 @@ class TopicDAO:
                 (topic.name, topic.script_path, topic.update_freq_minutes),
             )
             assert cur.lastrowid is not None
+            self.conn.commit()
             topic.id = cur.lastrowid
             return topic
 
@@ -74,6 +92,55 @@ class TopicDAO:
                 ),
             )
             assert cur.rowcount == 1
+            self.conn.commit()
+
+        finally:
+            cur.close()
+
+
+# --------------------------------------------------------------------
+class UserDAO:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def save(self, info: UserInfo):
+        cur = self.conn.cursor()
+        try:
+            if self.find_by_id(info.id) is not None:
+                cur.execute(
+                    "update user_info set username = ? where id = ?",
+                    (info.username, info.id),
+                )
+            else:
+                cur.execute(
+                    "insert into user_info (id, username) values (?, ?)",
+                    (info.id, info.username),
+                )
+
+            assert cur.rowcount == 1
+            self.conn.commit()
+
+        finally:
+            cur.close()
+
+    def find_by_name(self, name: str) -> Optional[UserInfo]:
+        cur = self.conn.cursor()
+        try:
+            result = cur.execute(
+                "select id from user_info where username = ?", (name,)
+            ).fetchone()
+            return UserInfo(result, name) if result is not None else None
+
+        finally:
+            cur.close()
+
+    def find_by_id(self, id: int) -> Optional[UserInfo]:
+        cur = self.conn.cursor()
+        try:
+            result = cur.execute(
+                "select username from user_info where id = ?", (id,)
+            ).fetchone()
+            return UserInfo(id, result) if result is not None else None
 
         finally:
             cur.close()

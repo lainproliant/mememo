@@ -26,3 +26,10 @@ class Topic:
 class Subscription:
     topic_id: int
     user_id: int
+
+
+# --------------------------------------------------------------------
+@dataclass
+class UserInfo:
+    id: int
+    username: str

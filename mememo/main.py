@@ -10,18 +10,19 @@
 import sys
 from mememo.modules import AppModule
 from xeno import SyncInjector
+from typing import cast
 
 
 # --------------------------------------------------------------------
-def main(argv):
+def main():
     injector = SyncInjector(AppModule())
 
-    if len(argv) > 0 and argv[0] == "admin":
-        injector.require("admin")
+    if len(sys.argv) > 1 and sys.argv[1] == "admin":
+        sys.exit(cast(int, injector.require("admin")))
     else:
         injector.require("bot")
 
 
 # --------------------------------------------------------------------
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

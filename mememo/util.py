@@ -7,9 +7,10 @@
 # Distributed under terms of the MIT license.
 # --------------------------------------------------------------------
 
-import os
 import inspect
+import os
 from typing import Any
+
 
 # --------------------------------------------------------------------
 def env_require(name: str) -> str:

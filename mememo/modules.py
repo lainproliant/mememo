@@ -8,6 +8,7 @@
 # --------------------------------------------------------------------
 
 import readline
+import sys
 
 import discord
 from dotenv import load_dotenv
@@ -52,4 +53,4 @@ class AppModule:
     def admin(self, readline_init, dao_factory):
         admin = AdminCommandInterface(dao_factory)
         readline.set_completer(admin.readline_cmd_complete)
-        admin.run()
+        return admin.run(sys.argv[2:])
