@@ -9,6 +9,7 @@
 
 import os
 import sqlite3
+import secrets
 from typing import Optional
 
 from mememo.domain import Topic, UserInfo
@@ -34,15 +35,35 @@ create table subscriptions (
 CREATE_USER_INFO_TABLE = """
 create table user_info (
     id integer not null unique,
-    username text not null
+    username text not null,
+    admin integer not null default 0
 )
 """
 
-TABLES: dict[str, str] = {
-    "topics": CREATE_TOPICS_TABLE,
-    "subscriptions": CREATE_SUBSCRIPTIONS_TABLE,
-    "user_info": CREATE_USER_INFO_TABLE,
-}
+CREATE_USER_PERMISSIONS_TABLE = """
+create table user_permissions (
+    id integer not null primary key,
+    permission text not null,
+    foreign key(id) references user_info(id) on delete cascade
+)
+"""
+
+CREATE_API_KEYS_TABLE = """
+create table api_keys (
+    key text not null primary key,
+    id integer not null,
+    foreign key(id) references user_info(id) on delete cascade
+)
+"""
+
+TABLES = (
+    ("topics", CREATE_TOPICS_TABLE),
+    ("subscriptions", CREATE_SUBSCRIPTIONS_TABLE),
+    ("user_info", CREATE_USER_INFO_TABLE),
+    ("user_permissions", CREATE_USER_PERMISSIONS_TABLE),
+    ("api_keys", CREATE_API_KEYS_TABLE)
+)
+
 
 # --------------------------------------------------------------------
 class TopicDAO:
@@ -60,7 +81,9 @@ class TopicDAO:
 
     def list(self) -> list[Topic]:
         cur = self.conn.cursor()
-        results = cur.execute("select name, script_path, last_updated_timestamp, update_freq_minutes, id from topics").fetchall()
+        results = cur.execute(
+            "select name, script_path, last_updated_timestamp, update_freq_minutes, id from topics"
+        ).fetchall()
         return [self._row_to_obj(row) for row in results]
 
     def create(self, topic: Topic) -> Topic:
@@ -118,7 +141,22 @@ class UserDAO:
                 )
 
             assert cur.rowcount == 1
+            self._save_user_permissions(info)
             self.conn.commit()
+
+        finally:
+            cur.close()
+
+    def _save_user_permissions(self, info: UserInfo):
+        cur = self.conn.cursor()
+
+        try:
+            cur.execute("delete from user_permissions where id = ?", (info.id,))
+            for permission in info.permissions:
+                cur.execute(
+                    "insert into user_permissions (id, permission) values (?, ?)",
+                    (info.id, permission),
+                )
 
         finally:
             cur.close()
@@ -147,6 +185,15 @@ class UserDAO:
 
 
 # --------------------------------------------------------------------
+class APIKeyDAO:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def create_key(self, info: UserInfo) -> str:
+        pass
+
+
+# --------------------------------------------------------------------
 class DAOFactory:
     def topics(self) -> TopicDAO:
         raise NotImplementedError()
@@ -159,7 +206,7 @@ class SQLiteDAOFactory(DAOFactory):
             print("DB file doesn't exist, creating it...")
         self.conn = sqlite3.connect(db_filename)
 
-        for table, create_ddl in TABLES.items():
+        for table, create_ddl in TABLES:
             if not self._table_exists(table):
                 print(f"Creating {table} table...")
                 self.conn.execute(create_ddl)

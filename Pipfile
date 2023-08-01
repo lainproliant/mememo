@@ -6,12 +6,14 @@ name = "pypi"
 [packages]
 "discord.py" = "*"
 python-dotenv = "*"
-xeno = "*"
+xeno = ">=6.1.0"
+bivalve = ">=0.4"
 
 [dev-packages]
 shortuuid = "*"
 neovim = "*"
 isort = "*"
+black = "*"
 
 [requires]
 python_version = "3.10"

@@ -7,7 +7,7 @@
 # Distributed under terms of the MIT license.
 # --------------------------------------------------------------------
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -33,3 +33,4 @@ class Subscription:
 class UserInfo:
     id: int
     username: str
+    permissions: list[str] = field(default_factory=list)
