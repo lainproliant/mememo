@@ -12,6 +12,7 @@ from domain import Topic
 from datetime import datetime
 from discord.ext import commands, tasks
 
+
 # --------------------------------------------------------------------
 class TopicRunner:
     def __init__(self, topic: Topic, last_updated: datetime = datetime.min):

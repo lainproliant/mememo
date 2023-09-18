@@ -10,6 +10,7 @@
 from xeno.color import color
 from functools import partial
 
+
 class Colors:
     greeting = partial(color, fg="white", render="dim")
     cmd = partial(color, fg="green")

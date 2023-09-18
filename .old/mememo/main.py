@@ -17,6 +17,8 @@ from typing import cast
 def main():
     injector = SyncInjector(AppModule())
 
+    config = injector.require("config")
+
     if len(sys.argv) > 1 and sys.argv[1] == "admin":
         sys.exit(cast(int, injector.require("admin")))
     else:

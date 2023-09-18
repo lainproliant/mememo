@@ -61,7 +61,7 @@ TABLES = (
     ("subscriptions", CREATE_SUBSCRIPTIONS_TABLE),
     ("user_info", CREATE_USER_INFO_TABLE),
     ("user_permissions", CREATE_USER_PERMISSIONS_TABLE),
-    ("api_keys", CREATE_API_KEYS_TABLE)
+    ("api_keys", CREATE_API_KEYS_TABLE),
 )
 
 

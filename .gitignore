@@ -1,3 +1,9 @@
 .env
 *.db
 Pipfile.lock
+*.sqlite3*
+.env
+.vscode/
+.DS_Store
+**/*.pyc
+**/__pycache__
