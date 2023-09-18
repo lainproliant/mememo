@@ -5,8 +5,6 @@
 # Date: Wednesday September 13, 2023
 # --------------------------------------------------------------------
 
-import signal
-
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,7 +20,6 @@ from django.contrib.auth.models import User
 SESSION_TIMEOUT = timedelta(minutes=5)
 
 log = LogManager().get(__name__)
-LogManager().setup()
 
 
 # --------------------------------------------------------------------
@@ -59,12 +56,7 @@ class MememoAgent(BivalveAgent):
         self.sessions: dict[Connection.ID, Session] = {}
         self.path = path
 
-    def ctrlc_handler(self, *_):
-        log.critical("Ctrl+C received.")
-        self.shutdown()
-
     async def run(self):
-        signal.signal(signal.SIGINT, self.ctrlc_handler)
         try:
             await self.serve(path=self.path)
         except Exception:
