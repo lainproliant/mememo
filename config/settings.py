@@ -128,3 +128,4 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AGENT_UNIX_SOCKET_PATH = BASE_DIR / "agent.sock"
+AGENT_LOG_LEVEL = env("AGENT_LOG_LEVEL")

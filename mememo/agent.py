@@ -5,67 +5,21 @@
 # Date: Wednesday September 13, 2023
 # --------------------------------------------------------------------
 
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
-from models import ThirdPartyAuthentication
 
 from bivalve.agent import BivalveAgent
 from bivalve.aio import Connection
 from bivalve.logging import LogManager
-from bivalve.constants import Permissions
-from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 
-# --------------------------------------------------------------------
-SESSION_TIMEOUT = timedelta(minutes=5)
+from mememo.auth import Session, auth, authenticate, create_auth3p
+from mememo.constants import Permissions
+from mememo.models import ThirdPartyAuthentication, new_random_pw
+from mememo.util import django_sync
 
+# --------------------------------------------------------------------
 log = LogManager().get(__name__)
-
-
-# --------------------------------------------------------------------
-@dataclass
-class Session:
-    conn: Connection
-    expiry_dt: datetime = field(
-        default_factory=lambda: datetime.now() + SESSION_TIMEOUT
-    )
-    user: Optional[User] = None
-
-
-# --------------------------------------------------------------------
-def authenticated(f):
-    def wrapper(self: "MememoAgent", conn: Connection, *argv):
-        session = self.sessions.get(conn.id)
-        if not session or not session.user:
-            raise RuntimeError("Not authenticated.")
-
-        if session.user.has_perm(Permissions.THIRD_PARTY_GATEWAY):
-            # This is a third party gateway user, representing a Discord or Slack agent.
-            third_party_auth = ThirdPartyAuthentication.objects.filter(identity=identity).first()
-
-            if third_party_auth is None or third_party_auth.user is None:
-                raise RuntimeError("Third-party identity not authenticated.")
-
-            if datetime.now() >= third_party_auth.expiry_dt:
-                raise RuntimeError("Third-party identity authentication has expired, please re-authenticate.")
-
-            user = third_party_auth.user
-
-        else:
-            # TODO: This is a direct user connection.
-
-
-        if third_party_auth is None or third_party_auth.user is None:
-            raise RuntimeError("Third-party identity not authenticated.")
-
-        if datetime.now() >= third_party_auth.expiry_dt:
-            raise RuntimeError("Third-party identity authentication has expired, please re-authenticate.")
-
-        return f(session, *args)
-
-    return wrapper
 
 
 # --------------------------------------------------------------------
@@ -90,10 +44,15 @@ class MememoAgent(BivalveAgent):
     def on_client_disconnect(self, conn: Connection):
         del self.sessions[conn.id]
 
-    def _identify(self, identity: str) -> Optional[User]:
-        return ThirdPartyAuthentication.objects.filter(identity=identity).first()
+    async def fn_auth(self, conn: Connection, username: str, password: str):
+        session = self.sessions[conn.id]
+        session.user = await authenticate(username=username, password=password)
+        if session.user is None:
+            raise RuntimeError("Invalid credentials.")
+        return f"Authenticated as {session.user.username}."
 
-    def fn_authenticate(
+    @django_sync
+    def fn_auth3p(
         self,
         conn: Connection,
         identity: str,
@@ -102,12 +61,33 @@ class MememoAgent(BivalveAgent):
     ):
         session = self.sessions[conn.id]
 
-        session.user = authenticate(username, password)
-        if session.user:
-            return "OK"
-        else:
-            return "FAIL"
+        if session.user is None or not session.user.has_perm(Permissions.THIRD_PARTY_GATEWAY):
+            raise RuntimeError(
+                "Can't authenticate third-party users, this user is not a third party gateway."
+            )
 
-    @auth_fn
-    def fn_check(self, identity, alias, *argv):
-        return "OK"
+        if challenge is None:
+            auth3p = create_auth3p(identity, alias)
+
+            return "Ask the administrator for a challenge code, then send it back to me via `auth <challenge-code>`."
+
+        else:
+            auth3p = ThirdPartyAuthentication.objects.filter(identity=identity).first()
+            if auth3p is None:
+                raise RuntimeError("Not permitted.")
+
+        if challenge != auth3p.challenge:
+            raise RuntimeError("Challenge failed.")
+
+        user = User.objects.filter(username=auth3p.alias).first()
+        if user is None:
+            user = User.objects.create(username=auth3p.alias, password=new_random_pw())
+            user.save()
+
+        auth3p.user = user
+        auth3p.save()
+        return f"You're authenticated, {user.username}."
+
+    @auth
+    def fn_hello(self, user: User, *argv):
+        return f"Hello, {user.username}!"

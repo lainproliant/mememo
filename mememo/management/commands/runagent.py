@@ -10,14 +10,17 @@ import logging
 import signal
 
 from bivalve.logging import LogManager
-from config.settings import AGENT_UNIX_SOCKET_PATH
+from config.settings import AGENT_LOG_LEVEL, AGENT_UNIX_SOCKET_PATH
 from django.core.management.base import BaseCommand
 from mememo.agent import MememoAgent
 from mememo.discord import DiscordAgent
 
 # --------------------------------------------------------------------
 LogManager().setup()
-LogManager().set_format("%(asctime)s @ %(pathname)s:%(lineno)d:%(funcName)s\n[%(levelname)s] %(message)s")
+LogManager().set_level(AGENT_LOG_LEVEL)
+LogManager().set_format(
+    "%(asctime)s @ %(pathname)s:%(lineno)d:%(funcName)s\n[%(levelname)s] %(message)s"
+)
 log = LogManager().get(__name__)
 
 

@@ -24,6 +24,8 @@ log = LogManager().get(__name__)
 class DiscordAgent(BivalveAgent):
     ENABLED = env("MEMEMO_DISCORD_ENABLED")
     TOKEN = env("MEMEMO_DISCORD_TOKEN")
+    AGENT_USERNAME = env("MEMEMO_DISCORD_AGENT_USERNAME")
+    AGENT_PASSWORD = env("MEMEMO_DISCORD_AGENT_PASSWORD")
 
     def __init__(self, peer: MememoAgent):
         super().__init__()
@@ -33,6 +35,14 @@ class DiscordAgent(BivalveAgent):
     async def run(self):
         self.add_connection(self.peer.bridge())
         await asyncio.gather(super().run(), self.bot.start(self.TOKEN))
+
+    async def on_connect(self, _):
+        result = await self.call("auth", self.AGENT_USERNAME, self.AGENT_PASSWORD)
+        if result.code != result.Code.OK:
+            log.critical(f"Discord agent authentication failed: {result}")
+            self.shutdown()
+        else:
+            log.info("Discord agent successfully authenticated.")
 
     def on_disconnect(self, _):
         self.schedule(self.bot.close())
@@ -51,11 +61,26 @@ class DiscordClient(discord.Client):
         if message.author == self.user:
             return
 
-        if self.user in message.mentions or isinstance(message.channel, discord.DMChannel):
-            argv = [x for x in shlex.split(message.content) if x != self.user.mention]
+        if self.user in message.mentions or isinstance(
+            message.channel, discord.DMChannel
+        ):
+            fn_name, *argv = [
+                x for x in shlex.split(message.content) if x != self.user.mention
+            ]
+
+            if fn_name == "auth":
+                fn_name = "auth3p"
+
             try:
-                result = await self.agent.call(*argv)
+                result = await self.agent.call(
+                    fn_name,
+                    "discord-" + str(message.author.id),
+                    message.author.name,
+                    *argv,
+                )
                 await message.channel.send(f"```\n{repr(result.__dict__)}```")
 
             except Exception as e:
-                await message.channel.send(f"I'm sorry, an error occurred.\n`{e.__class__.__qualname__}: {e}`")
+                await message.channel.send(
+                    f"I'm sorry, an error occurred.\n`{e.__class__.__qualname__}: {e}`"
+                )
