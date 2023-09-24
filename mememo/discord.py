@@ -16,7 +16,7 @@ import discord
 from mememo.agent import MememoAgent
 
 # --------------------------------------------------------------------
-env = environ.Env(MEMEMO_BOT_ENABLED=(bool, False))
+env = environ.Env()
 log = LogManager().get(__name__)
 
 
@@ -68,6 +68,7 @@ class DiscordClient(discord.Client):
                 x for x in shlex.split(message.content) if x != self.user.mention
             ]
 
+            # Mask the agent `auth` function.
             if fn_name == "auth":
                 fn_name = "auth3p"
 

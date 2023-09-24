@@ -9,6 +9,7 @@ django-environ = "*"
 shortuuid = "*"
 bivalve = "*"
 "discord.py" = "*"
+dataclass-wizard = {extras = ["yaml"], version = "*"}
 
 [dev-packages]
 neovim = "*"

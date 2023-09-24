@@ -8,11 +8,13 @@
 from datetime import datetime, timedelta
 
 import shortuuid
+from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db import models
 
 # --------------------------------------------------------------------
 THIRD_PARTY_AUTH_EXPIRY_DAYS = 120
+SERVICE_GRANT_EXPIRY_DAYS = 365
 DEFAULT_TOPIC_RUN_FREQ_MIN = 5
 RANDOM_PW_LEN = 32
 SHORTUUID_LEN = 8
@@ -80,10 +82,40 @@ class TimestampedModel(models.Model):
 
 
 # --------------------------------------------------------------------
+class Service(TimestampedModel):
+    name = models.CharField(max_length=128, primary_key=True)
+    yaml = models.TextField()
+    enabled = models.BooleanField(default=True)
+
+
+# --------------------------------------------------------------------
+class ServiceGrants(TimestampedModel):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE)
+    service_name = models.CharField(max_length=128)
+    grant_name = models.CharField(max_length=128)
+
+    class Meta:
+        unique_together = ("service_name", "grant_name")
+
+
+# --------------------------------------------------------------------
+class ServiceGrantAssignment(TimestampedModel):
+    grant = models.ForeignKey(ServiceGrants, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    expiry_dt = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.expiry_dt = timezone.now() + timedelta(days=SERVICE_GRANT_EXPIRY_DAYS)
+        super().save(*args, **kwargs)
+
+
+# --------------------------------------------------------------------
 class Topic(TimestampedModel):
     id = id_field()
     cmd = models.TextField()
     env = models.JSONField(default=dict)
+    service = models.ForeignKey(Service, on_delete=models.CASCADE)
     last_run_dt = models.DateTimeField(default=datetime.min)
     next_run_dt = models.DateTimeField(default=datetime.min)
     run_freq_minutes = models.IntegerField(default=DEFAULT_TOPIC_RUN_FREQ_MIN)
@@ -96,10 +128,15 @@ class ThirdPartyAuthentication(TimestampedModel):
     challenge = challenge_field()
     identity = models.TextField(db_index=True, unique=True)
     alias = models.CharField(max_length=150)
-    user = models.ForeignKey(User, default=None, on_delete=models.CASCADE, unique=False, null=True)
+    user = models.ForeignKey(
+        User, default=None, on_delete=models.CASCADE, unique=False, null=True
+    )
 
 
 # --------------------------------------------------------------------
 class Subscription(TimestampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ("user", "topic")
