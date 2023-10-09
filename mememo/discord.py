@@ -8,25 +8,20 @@
 import shlex
 
 import asyncio
-import environ
 from bivalve.agent import BivalveAgent
 from bivalve.logging import LogManager
 
 import discord
 from mememo.agent import MememoAgent
+from mememo.config import Config
 
 # --------------------------------------------------------------------
-env = environ.Env()
 log = LogManager().get(__name__)
+config = Config.get()
 
 
 # --------------------------------------------------------------------
 class DiscordAgent(BivalveAgent):
-    ENABLED = env("MEMEMO_DISCORD_ENABLED")
-    TOKEN = env("MEMEMO_DISCORD_TOKEN")
-    AGENT_USERNAME = env("MEMEMO_DISCORD_AGENT_USERNAME")
-    AGENT_PASSWORD = env("MEMEMO_DISCORD_AGENT_PASSWORD")
-
     def __init__(self, peer: MememoAgent):
         super().__init__()
         self.bot = DiscordClient(self)
@@ -34,10 +29,10 @@ class DiscordAgent(BivalveAgent):
 
     async def run(self):
         self.add_connection(self.peer.bridge())
-        await asyncio.gather(super().run(), self.bot.start(self.TOKEN))
+        await asyncio.gather(super().run(), self.bot.start(config.discord.token))
 
     async def on_connect(self, _):
-        result = await self.call("auth", self.AGENT_USERNAME, self.AGENT_PASSWORD)
+        result = await self.call("auth", config.discord.mememo_user, config.discord.mememo_passwd)
         if result.code != result.Code.OK:
             log.critical(f"Discord agent authentication failed: {result}")
             self.shutdown()

@@ -5,13 +5,13 @@
 # Date: Wednesday September 13, 2023
 # --------------------------------------------------------------------
 
-from pathlib import Path
 from typing import Optional
 
 from bivalve.agent import BivalveAgent
 from bivalve.aio import Connection
 from bivalve.logging import LogManager
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from mememo.auth import Session, auth, authenticate, create_auth3p
 from mememo.constants import Permissions
@@ -24,14 +24,15 @@ log = LogManager().get(__name__)
 
 # --------------------------------------------------------------------
 class MememoAgent(BivalveAgent):
-    def __init__(self, path: Path):
+    def __init__(self, host, port):
         super().__init__()
         self.sessions: dict[Connection.ID, Session] = {}
-        self.path = path
+        self.host = host
+        self.port = port
 
     async def run(self):
         try:
-            await self.serve(path=self.path)
+            await self.serve(host=self.host, port=self.port)
         except Exception:
             log.exception("Failed to start server.")
             self.shutdown()
@@ -76,7 +77,14 @@ class MememoAgent(BivalveAgent):
             if auth3p is None:
                 raise RuntimeError("Not permitted.")
 
+        now = timezone.now()
+
+        if now > auth3p.expiry_dt:
+            auth3p.delete()
+            raise RuntimeError("Challenge has expired.")
+
         if challenge != auth3p.challenge:
+            auth3p.delete()
             raise RuntimeError("Challenge failed.")
 
         user = User.objects.filter(username=auth3p.alias).first()
@@ -90,4 +98,4 @@ class MememoAgent(BivalveAgent):
 
     @auth
     def fn_hello(self, user: User, *argv):
-        return f"Hello, {user.username}!"
+        return f"Hello, @{user.username}!"

@@ -6,18 +6,18 @@
 # --------------------------------------------------------------------
 
 import asyncio
-import logging
 import signal
 
 from bivalve.logging import LogManager
-from config.settings import AGENT_LOG_LEVEL, AGENT_UNIX_SOCKET_PATH
+from mememo.config import Config
 from django.core.management.base import BaseCommand
 from mememo.agent import MememoAgent
 from mememo.discord import DiscordAgent
 
 # --------------------------------------------------------------------
+config = Config.get()
 LogManager().setup()
-LogManager().set_level(AGENT_LOG_LEVEL)
+LogManager().set_level(config.agent.log_level)
 LogManager().set_format(
     "%(asctime)s @ %(pathname)s:%(lineno)d:%(funcName)s\n[%(levelname)s] %(message)s"
 )
@@ -38,9 +38,9 @@ class Command(BaseCommand):
         await asyncio.gather(*[agent.run() for agent in agents])
 
     def handle(self, *args, **kwargs):
-        main_agent = MememoAgent(AGENT_UNIX_SOCKET_PATH)
+        main_agent = MememoAgent(config.agent.host, config.agent.port)
         agents = [main_agent]
-        if DiscordAgent.ENABLED:
+        if config.discord.enabled:
             agents.append(DiscordAgent(main_agent))
 
         asyncio.run(self._run_agents(agents))

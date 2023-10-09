@@ -41,8 +41,8 @@ class Session:
 # --------------------------------------------------------------------
 def create_auth3p(identity: str, alias: str) -> ThirdPartyAuthentication:
     """
-    Makes a new third-party authentication, replacing any previous one for
-    the given identity.
+    Makes a new third-party authentication, replacing any previous one
+    for the given identity.
     """
 
     ThirdPartyAuthentication.objects.filter(identity=identity).delete()
@@ -66,8 +66,9 @@ def auth(f_or_perm: Union[str, Callable], *perms: str):
                 raise RuntimeError("Not authenticated.")
 
             if session.user.has_perm(Permissions.THIRD_PARTY_GATEWAY):
-                # This is a third party gateway user, representing a Discord or Slack agent.
-                # We want to authenticate the third party user.
+                # This is a third party gateway user, representing a
+                # Discord or Slack agent.  We want to authenticate the
+                # third party user.
                 identity, alias, *real_argv = argv
                 third_party_auth = ThirdPartyAuthentication.objects.filter(
                     identity=identity

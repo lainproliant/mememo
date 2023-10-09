@@ -11,6 +11,7 @@ bivalve = "*"
 "discord.py" = "*"
 dataclass-wizard = {extras = ["yaml"], version = "*"}
 xeno = "*"
+isodate = "*"
 
 [dev-packages]
 neovim = "*"

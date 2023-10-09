@@ -1,6 +1,17 @@
 version: '3.8'
 services:
-  mememo:
-    image: ${MEMEMO_IMAGE_NAME}
+  mememo-agent:
+    container_name: mememo-agent
+    image: "${MEMEMO_IMAGE_NAME}"
     volumes:
       - /opt/mememo:/opt/mememo
+    ports:
+      - 8510:8510
+  mememo-admin:
+    container_name: mememo-admin
+    image: "${MEMEMO_IMAGE_NAME}"
+    volumes:
+      - /opt/mememo:/opt/mememo
+    ports:
+      - 8080:8080
+    command: pipenv run python manage.py runserver 0.0.0.0:8080
