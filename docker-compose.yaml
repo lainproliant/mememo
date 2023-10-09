@@ -1,0 +1,6 @@
+version: '3.8'
+services:
+  mememo:
+    image: ${MEMEMO_IMAGE_NAME}
+    volumes:
+      - /opt/mememo:/opt/mememo

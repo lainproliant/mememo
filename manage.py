@@ -2,11 +2,16 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+import yaml
 
 
 def main():
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+    with open('/opt/mememo/env.yaml', 'r') as infile:
+        os.environ.update(yaml.safe_load(infile))
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

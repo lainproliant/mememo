@@ -10,6 +10,7 @@ shortuuid = "*"
 bivalve = "*"
 "discord.py" = "*"
 dataclass-wizard = {extras = ["yaml"], version = "*"}
+xeno = "*"
 
 [dev-packages]
 neovim = "*"
