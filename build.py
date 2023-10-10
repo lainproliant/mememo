@@ -8,7 +8,7 @@
 
 import getpass
 
-from xeno.build import provide, task, build, recipe
+from xeno.build import provide, task, build
 from xeno.recipe import Recipe
 from xeno.recipes.shell import sh
 from xeno.shell import check

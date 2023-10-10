@@ -21,7 +21,7 @@ from typing import Iterable, Optional
 BASE_PATH = Path("/opt/mememo/services")
 RESULTS_FILE = Path("results.txt")
 
-log = LogManager.get(__name__)
+log = LogManager().get(__name__)
 
 
 # --------------------------------------------------------------------
@@ -88,7 +88,9 @@ class Service:
 
         if self.definition.setup:
             self.log.info("Running setup command: {self.definition.setup}")
-            await sh.cd(self.base_path()).run(self.definition.setup, check=True)
+            await sh.cd(self.base_path()).run(
+                self.definition.setup, self.definition.env, check=True
+            )
 
     async def update(self) -> str:
         cached_result = self.cached_result()
@@ -101,7 +103,9 @@ class Service:
             sb.write(s)
 
         sh = Shell(self.definition.env, self.base_path())
-        await sh.run(self.definition.run, stdout=on_line, check=True)
+        await sh.run(
+            self.definition.run, env=self.definition.env, stdout=on_line, check=True
+        )
 
         if self.cache_duration() is not None:
             with open(self.cached_result_path(), "w") as outfile:
@@ -136,5 +140,9 @@ class ServiceManager:
         now = datetime.now()
 
         for service in self.services():
-            if service.next_update_time():
-                pass # TODO!
+            if service.next_update_time(self.last_update_dt) < now:
+                await service.prepare()
+                await service.update()
+
+        self.last_update_dt = datetime.now()
+        self.next_update_dt = now + Config().get().system.get_service_update_delay()

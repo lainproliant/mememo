@@ -12,6 +12,7 @@ bivalve = "*"
 dataclass-wizard = {extras = ["yaml"], version = "*"}
 xeno = "*"
 isodate = "*"
+croniter = "*"
 
 [dev-packages]
 neovim = "*"

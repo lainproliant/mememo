@@ -16,6 +16,7 @@ from django.utils import timezone
 from mememo.auth import Session, auth, authenticate, create_auth3p
 from mememo.constants import Permissions
 from mememo.models import ThirdPartyAuthentication, new_random_pw
+from mememo.service import ServiceManager
 from mememo.util import django_sync
 
 # --------------------------------------------------------------------
@@ -29,10 +30,12 @@ class MememoAgent(BivalveAgent):
         self.sessions: dict[Connection.ID, Session] = {}
         self.host = host
         self.port = port
+        self.service_manager = ServiceManager()
 
     async def run(self):
         try:
             await self.serve(host=self.host, port=self.port)
+            self.schedule(self.maintain_services())
         except Exception:
             log.exception("Failed to start server.")
             self.shutdown()
@@ -52,6 +55,10 @@ class MememoAgent(BivalveAgent):
             raise RuntimeError("Invalid credentials.")
         return f"Authenticated as {session.user.username}."
 
+    async def maintain_services(self):
+        await self.service_manager.scheduled_update()
+        self.schedule(self.maintain_services())
+
     @django_sync
     def fn_auth3p(
         self,
@@ -62,7 +69,9 @@ class MememoAgent(BivalveAgent):
     ):
         session = self.sessions[conn.id]
 
-        if session.user is None or not session.user.has_perm(Permissions.THIRD_PARTY_GATEWAY):
+        if session.user is None or not session.user.has_perm(
+            Permissions.THIRD_PARTY_GATEWAY
+        ):
             raise RuntimeError(
                 "Can't authenticate third-party users, this user is not a third party gateway."
             )

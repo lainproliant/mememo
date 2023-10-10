@@ -112,7 +112,7 @@ class Topic(TimestampedModel):
     id = id_field()
     cmd = models.TextField()
     env = models.JSONField(default=dict)
-    service = models.ForeignKey(Service, on_delete=models.CASCADE)
+    service_name = models.CharField(max_length=128)
     last_run_dt = models.DateTimeField(default=datetime.min)
     next_run_dt = models.DateTimeField(default=datetime.min)
     run_freq_minutes = models.IntegerField(default=DEFAULT_TOPIC_RUN_FREQ_MIN)
