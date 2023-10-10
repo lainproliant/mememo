@@ -8,6 +8,7 @@
 from datetime import datetime, timedelta
 
 import shortuuid
+from mememo.config import Config
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db import models
@@ -69,6 +70,10 @@ class MememoPermissions(models.Model):
                 "third_party_gateway",
                 "User can act as a third-party authentication gateway.",
             ),
+            (
+                "gatekeeper",
+                "User can list pending challenge codes."
+            )
         )
 
 
@@ -82,15 +87,7 @@ class TimestampedModel(models.Model):
 
 
 # --------------------------------------------------------------------
-class Service(TimestampedModel):
-    name = models.CharField(max_length=128, primary_key=True)
-    yaml = models.TextField()
-    enabled = models.BooleanField(default=True)
-
-
-# --------------------------------------------------------------------
 class ServiceGrants(TimestampedModel):
-    service = models.ForeignKey(Service, on_delete=models.CASCADE)
     service_name = models.CharField(max_length=128)
     grant_name = models.CharField(max_length=128)
 

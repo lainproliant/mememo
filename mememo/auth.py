@@ -65,7 +65,9 @@ def auth(f_or_perm: Union[str, Callable], *perms: str):
             if not session or not session.user:
                 raise RuntimeError("Not authenticated.")
 
-            if session.user.has_perm(Permissions.THIRD_PARTY_GATEWAY):
+            if not session.user.is_superuser and session.user.has_perm(
+                Permissions.THIRD_PARTY_GATEWAY
+            ):
                 # This is a third party gateway user, representing a
                 # Discord or Slack agent.  We want to authenticate the
                 # third party user.

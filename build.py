@@ -8,7 +8,7 @@
 
 import getpass
 
-from xeno.build import provide, task, build
+from xeno.build import provide, task, build, recipe
 from xeno.recipe import Recipe
 from xeno.recipes.shell import sh
 from xeno.shell import check
@@ -64,8 +64,51 @@ def docker_build(image_name):
 
 
 # --------------------------------------------------------------------
+@task(keep=True)
+def runtime_path():
+    return sh(
+        "mkdir -p {target} && chown -R {user} {target}",
+        as_user="root",
+        target="/opt/mememo",
+        user=getpass.getuser(),
+    )
+
+
+# --------------------------------------------------------------------
+@task(keep=True, dep="runtime_path")
+def runtime_config(runtime_path):
+    return sh(
+        'read -p "Please write configuration file to {target}, then press Enter." && [ -f {target} ]',
+        target="/opt/mememo/config.yaml",
+        interact=True,
+    )
+
+
+# --------------------------------------------------------------------
+@task(keep=True, dep="runtime_config")
+def database(runtime_config):
+    return sh(
+        " ".join(
+            [
+                "pipenv run python manage.py migrate &&"
+                "[ -f {target} ] &&"
+                "pipenv run python manage.py createsuperuser"
+            ]
+        ),
+        interact=True,
+        target="/opt/mememo/db.sqlite3",
+    )
+
+
+# --------------------------------------------------------------------
 @task
-def debug(docker_build):
+def migrate():
+    return sh("pipenv run python manage.py migrate")
+
+
+# --------------------------------------------------------------------
+@task(dep="database")
+def debug(database, docker_build):
     return sh(
         "docker run -it -v /opt/mememo:/opt/mememo {docker_build}",
         docker_build=docker_build,
@@ -75,8 +118,8 @@ def debug(docker_build):
 
 
 # --------------------------------------------------------------------
-@task(default=True, dep="docker_build,runtime_path")
-def up(docker_build, runtime_path):
+@task(default=True, dep="docker_build,database")
+def up(docker_build, database):
     return sh(
         "docker-compose up --remove-orphans -d",
         env={"MEMEMO_IMAGE_NAME": docker_build.result()},
@@ -90,38 +133,25 @@ def down(docker_build):
 
 
 # --------------------------------------------------------------------
-@task(keep=True)
-def runtime_path():
+@task(dep="up")
+def watch(up, argv):
+    image_name = "agent"
+
+    if len(argv) > 0:
+        image_name = argv[0]
+
     return sh(
-        "mkdir -p {target} && chown -R {user} {target}",
-        as_user="root",
-        target="/opt/mememo",
-        user=getpass.getuser(),
+        "docker attach --sig-proxy=false mememo-{image_name}",
+        image_name=image_name,
+        interact=True,
+        ctrlc=True,
     )
 
 
 # --------------------------------------------------------------------
-@task
-def runtime_database(runtime_path):
-    # TODO
-    pass
-
-# --------------------------------------------------------------------
-@task
-def migrate():
-    return sh("pipenv run python manage.py migrate")
-
-
-# --------------------------------------------------------------------
 @task(dep="up")
-def watch_admin(up):
-    return sh("docker attach --sig-proxy=false mememo-admin", interact=True, ctrlc=True)
-
-
-# --------------------------------------------------------------------
-@task(dep="up")
-def watch_agent(up):
-    return sh("docker attach --sig-proxy=false mememo-agent", interact=True, ctrlc=True)
+def talk(up):
+    return sh("pipenv run bivalve -H localhost -p 8510", interact=True, ctrlc=True)
 
 
 # --------------------------------------------------------------------

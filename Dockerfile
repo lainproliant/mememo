@@ -4,7 +4,7 @@ LABEL maintainer="lainproliant.com"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN pacman --noconfirm -Sy python python-pipenv
+RUN pacman --noconfirm -Sy python python-pipenv firefox
 RUN useradd -ms /bin/bash mememo
 USER mememo
 WORKDIR /home/mememo
