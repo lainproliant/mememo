@@ -60,7 +60,8 @@ def admin(f):
     @functools.wraps(f)
     async def wrapper(self: Any, conn: Connection, *argv):
         session = self.sessions.get(conn.id)
-        if not session or not session.user or not session.user.is_superuser:
+        user, real_argv = await django_sync(authorize_call)(session.user, [], *argv)
+        if not user.is_superuser:
             raise RuntimeError("Not permitted.")
         return await django_sync(f)(self, conn, session.user, *argv)
 
