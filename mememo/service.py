@@ -176,6 +176,10 @@ class Service(TimestampedBasePath):
             await self._git_clone()
             await self._setup()
 
+        if self.instance_id != instance_id:
+            await self._setup()
+            self.instance_id = instance_id
+
     async def update(
         self, instance_id: str, ctx: Optional[ServiceCallContext] = None
     ) -> str:
