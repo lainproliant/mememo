@@ -63,7 +63,7 @@ def admin(f):
         user, real_argv = await django_sync(authorize_call)(session.user, [], *argv)
         if not user.is_superuser:
             raise RuntimeError("Not permitted.")
-        return await django_sync(f)(self, conn, session.user, *argv)
+        return await django_sync(f)(self, conn, *argv)
 
     return wrapper
 
