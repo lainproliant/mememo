@@ -12,6 +12,7 @@ from bivalve.aio import Connection
 from bivalve.logging import LogManager
 from django.contrib.auth.models import Permission, User
 from django.utils import timezone
+from mememo.config import Config
 
 from mememo.auth import (
     Session,
@@ -21,7 +22,7 @@ from mememo.auth import (
     create_auth3p,
     authorize_call,
 )
-from mememo.constants import ChatModes, Permissions
+from mememo.constants import Permissions
 from mememo.models import (
     ServiceGrant,
     ServiceGrantAssignment,
@@ -135,8 +136,9 @@ class MememoAgent(BivalveAgent):
 
         auth3p.user = user
         auth3p.challenge = ""
+        auth3p.expiry_dt = now + Config.get().auth3p.get_expiry()
         auth3p.save()
-        return f"You're authenticated, @{user.username}."
+        return f"You're authenticated, @<{user.username}>.  Your authorization will expire on {auth3p.expiry_dt.isoformat()}."
 
     @auth(Permissions.GATEKEEPER)
     def fn_user(
@@ -192,7 +194,7 @@ class MememoAgent(BivalveAgent):
 
         Allowed: any authenticated user
         """
-        return f"Hello, @{user.username}!"
+        return f"Hello, @<{user.username}>!"
 
     @auth(Permissions.GATEKEEPER)
     def fn_lsauth3p(self, conn: Connection, user: User, username: Optional[str] = None):
@@ -207,7 +209,7 @@ class MememoAgent(BivalveAgent):
         Allowed: Users with `mememo.gatekeeper` sys permissions.
         """
 
-        results = [ChatModes.CODE]
+        results = []
         auth3p_filter = ThirdPartyAuthentication.objects.all().exclude(
             challenge__exact=""
         )
@@ -216,7 +218,11 @@ class MememoAgent(BivalveAgent):
 
         for auth3p in auth3p_filter:
             results.append(f"{auth3p.identity} ({auth3p.alias}): {auth3p.challenge}\n")
-        return results
+            return [
+                "```\n",
+                *results,
+                "```\n"
+            ]
 
     @auth(Permissions.GATEKEEPER)
     def fn_grant(
@@ -272,14 +278,18 @@ class MememoAgent(BivalveAgent):
         Allowed: Superusers only.
         """
 
-        results = [ChatModes.CODE]
+        results = []
         if username is None:
             for grant in ServiceGrant.objects.all():
                 results.append(grant.to_code())
         else:
             for grant in ServiceGrant.by_user(User.objects.get(username=username)):
                 results.append(grant)
-        return results
+        return [
+            "```\n",
+            *results,
+            "```\n"
+        ]
 
     @admin
     def fn_lspermit(self, conn: Connection, user: User):
@@ -291,10 +301,14 @@ class MememoAgent(BivalveAgent):
         Allowed: Superusers only.
         """
 
-        results = [ChatModes.CODE]
+        results = []
         for perm in Permission.objects.all():
             results.append(f"{perm.codename}\n")
-        return results
+        return [
+            "```\n",
+            *results,
+            "```\n"
+        ]
 
     @admin
     def fn_lsuser(self, conn: Connection, user: User):
@@ -306,10 +320,14 @@ class MememoAgent(BivalveAgent):
         Allowed: Superusers only.
         """
 
-        results = [ChatModes.CODE]
+        results = []
         for user in User.objects.all():
             results.append(f"{user.username}\n")
-        return results
+        return [
+            "```\n",
+            *results,
+            "```\n"
+        ]
 
     @admin
     def fn_mkgrant(self, conn: Connection, user: User, grant_code: str):

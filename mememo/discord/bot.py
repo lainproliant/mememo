@@ -1,12 +1,11 @@
 # --------------------------------------------------------------------
-# discord.py
+# discord/bot.py
 #
 # Author: Lain Musgrove (lain.proliant@gmail.com)
 # Date: Wednesday September 13, 2023
 # --------------------------------------------------------------------
 
 import asyncio
-import io
 import shlex
 
 from bivalve.agent import BivalveAgent
@@ -15,7 +14,7 @@ from bivalve.logging import LogManager
 import discord
 from mememo.agent import MememoAgent
 from mememo.config import Config
-from mememo.constants import ChatModes
+from mememo.discord.response import DiscordResponseDigestor, ResponseContext
 
 # --------------------------------------------------------------------
 log = LogManager().get(__name__)
@@ -51,10 +50,10 @@ class DiscordAgent(BivalveAgent):
 # --------------------------------------------------------------------
 class DiscordClient(discord.Client):
     def __init__(self, agent: DiscordAgent):
-        super().__init__(
-            intents=discord.Intents(messages=True, message_content=True, typing=True),
-        )
+        super().__init__(intents=discord.Intents.all())
         self.agent = agent
+        self.allowed_mentions = discord.AllowedMentions.all()
+        self.digestor = DiscordResponseDigestor()
 
     async def handle_message(self, message: discord.Message):
         fn_name, *argv = [
@@ -65,6 +64,8 @@ class DiscordClient(discord.Client):
         if fn_name == "auth":
             fn_name = "auth3p"
 
+        ctx = ResponseContext(self, message)
+
         try:
             result = await self.agent.call(
                 fn_name,
@@ -73,34 +74,19 @@ class DiscordClient(discord.Client):
                 *argv,
             )
 
-            sb = io.StringIO()
-
-
             if result.code == result.code.ERROR:
-                sb.write(":warning: Sorry, something went wrong.\n")
-                sb.write("```\n")
-                for line in result.content:
-                    sb.write(line + "\n")
-                sb.write("```\n")
+                response = self.digestor.digest_error(ctx, result.content)
 
             else:
-                match result.content[0]:
-                    case ChatModes.CODE:
-                        sb.write("```\n")
-                        for line in result.content[1:]:
-                            sb.write(line)
-                        sb.write("```\n")
+                response = self.digestor.digest_response(ctx, result.content)
 
-                    case _:
-                        for line in result.content:
-                            sb.write(line)
-                        pass
-
-            await message.channel.send(sb.getvalue())
+            await message.channel.send(response)
 
         except Exception as e:
             await message.channel.send(
-                f":boom: I'm sorry, I broke it!\n`{e.__class__.__qualname__}: {e}`"
+                self.digestor.digest_error(
+                    ctx, ["bot_error", e.__class__.__qualname__, str(e)]
+                )
             )
 
     async def on_message(self, message):

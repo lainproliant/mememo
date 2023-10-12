@@ -12,7 +12,7 @@ from bivalve.logging import LogManager
 from mememo.config import Config
 from django.core.management.base import BaseCommand
 from mememo.agent import MememoAgent
-from mememo.discord import DiscordAgent
+from mememo.discord.bot import DiscordAgent
 
 # --------------------------------------------------------------------
 config = Config.get()
