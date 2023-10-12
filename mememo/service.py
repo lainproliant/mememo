@@ -68,7 +68,10 @@ class TimestampedBasePath:
         last_update_file = self.base_path() / LAST_UPDATE_FILE
         if not last_update_file.exists():
             return datetime.min
-        return datetime.fromisoformat(open(last_update_file, "r").read())
+        try:
+            return datetime.fromisoformat(open(last_update_file, "r").read())
+        except Exception:
+            return datetime.min
 
     @last_update_dt.setter
     def last_update_dt(self, dt: datetime):
@@ -80,7 +83,10 @@ class TimestampedBasePath:
         next_update_file = self.base_path() / NEXT_UPDATE_FILE
         if not next_update_file.exists():
             return datetime.now()
-        return datetime.fromisoformat(open(next_update_file, "r").read())
+        try:
+            return datetime.fromisoformat(open(next_update_file, "r").read())
+        except Exception:
+            return datetime.now()
 
     @next_update_dt.setter
     def next_update_dt(self, dt: datetime):
@@ -158,6 +164,10 @@ class Service(TimestampedBasePath):
         cron = croniter.croniter(self.definition.schedule, ref)
         return cron.get_next(datetime)
 
+    async def refresh(self):
+        await self._git_pull()
+        await self._setup()
+
     async def prepare(self, instance_id: str, ctx: Optional[ServiceCallContext] = None):
         if ctx is not None:
             await django_sync(self._check_service_grants)(ctx)
@@ -166,21 +176,9 @@ class Service(TimestampedBasePath):
             await self._git_clone()
             await self._setup()
 
-        else:
-            await self._git_pull()
-
-        now = datetime.now()
-        refresh_interval = self.definition.get_refresh_interval()
-        if instance_id != self.instance_id or (
-            refresh_interval is not None
-            and now > self.last_update_dt + refresh_interval
-        ):
-            await self._git_pull()
-            await self._setup()
-            self.last_update_dt = now
-            self.instance_id = instance_id
-
-    async def update(self, instance_id: str, ctx: Optional[ServiceCallContext] = None) -> str:
+    async def update(
+        self, instance_id: str, ctx: Optional[ServiceCallContext] = None
+    ) -> str:
         if ctx is not None:
             await django_sync(self._check_service_grants)(ctx)
 
@@ -224,7 +222,9 @@ class Service(TimestampedBasePath):
             if grant not in grants:
                 missing_grants.append(grant)
         if missing_grants:
-            raise RuntimeError(f"Missing required service grants: {', '.join(missing_grants)}")
+            raise RuntimeError(
+                f"Missing required service grants: {', '.join(missing_grants)}"
+            )
 
     def _sh(self):
         return (

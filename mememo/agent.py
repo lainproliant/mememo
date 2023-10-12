@@ -218,11 +218,11 @@ class MememoAgent(BivalveAgent):
 
         for auth3p in auth3p_filter:
             results.append(f"{auth3p.identity} ({auth3p.alias}): {auth3p.challenge}\n")
-            return [
-                "```\n",
-                *results,
-                "```\n"
-            ]
+        return [
+            "```\n",
+            *results,
+            "```\n"
+        ]
 
     @auth(Permissions.GATEKEEPER)
     def fn_grant(

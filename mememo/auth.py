@@ -12,6 +12,7 @@ from typing import Any, Callable, Optional, Union
 
 from asgiref.sync import sync_to_async
 from bivalve.aio import Connection
+from bivalve.logging import LogManager
 from django.utils import timezone
 from django.contrib.auth import (
     authenticate as dj_authenticate,
@@ -26,6 +27,8 @@ from mememo.util import django_sync
 SESSION_TIMEOUT = timedelta(minutes=5)
 AUTH3P_CHALLENGE_EXPIRY = timedelta(hours=1)
 AUTH3P_EXPIRY = timedelta(days=90)
+
+log = LogManager().get(__name__)
 
 
 # --------------------------------------------------------------------
@@ -63,7 +66,7 @@ def admin(f):
         user, real_argv = await django_sync(authorize_call)(session.user, [], *argv)
         if not user.is_superuser:
             raise RuntimeError("Not permitted.")
-        return await django_sync(f)(self, conn, *argv)
+        return await django_sync(f)(self, conn, user, *real_argv)
 
     return wrapper
 

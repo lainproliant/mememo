@@ -35,7 +35,7 @@ class ResponseDigestor(Generic[T]):
                     if result == line:
                         break
                     line = result
-            sb.write(line + '\n')
+            sb.write(line)
         return sb.getvalue()
 
     def _user_mention(self, ctx: T, match: re.Match) -> str:

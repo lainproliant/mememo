@@ -57,7 +57,7 @@ class DiscordClient(discord.Client):
 
     async def handle_message(self, message: discord.Message):
         fn_name, *argv = [
-            x for x in shlex.split(message.content) if x != self.user.mention
+            x for x in shlex.split(message.content) if x != config.discord.sigil
         ]
 
         # Mask the agent `auth` function.
@@ -93,7 +93,7 @@ class DiscordClient(discord.Client):
         if message.author == self.user:
             return
 
-        if self.user in message.mentions or isinstance(
+        if message.content.startswith(config.discord.sigil) or isinstance(
             message.channel, discord.DMChannel
         ):
             async with message.channel.typing():

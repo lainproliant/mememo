@@ -50,6 +50,7 @@ class DiscordConfig(YAMLWizard):
     client_timeout: str = "60s"
     mememo_user: str = "discord-agent"
     mememo_passwd: str = "agent-password-here"
+    sigil: str = "!mememo"
 
     def get_client_timeout(self) -> int:
         return parse_td(self.client_timeout).total_seconds()
