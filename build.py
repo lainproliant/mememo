@@ -110,7 +110,7 @@ def migrate():
 @task(dep="database")
 def debug(database, docker_build):
     return sh(
-        "docker run -it -v /opt/mememo:/opt/mememo {docker_build}",
+        "docker run -it -p 8510:8510 -v /opt/mememo:/opt/mememo {docker_build}",
         docker_build=docker_build,
         interact=True,
         ctrlc=True,

@@ -61,19 +61,16 @@ def username_field() -> models.CharField:
 
 
 # --------------------------------------------------------------------
-class MememoPermissions(models.Model):
+class SystemPerms(models.Model):
     class Meta:
         managed = False
         default_permissions = ()
         permissions = (
             (
                 "third_party_gateway",
-                "User can act as a third-party authentication gateway.",
+                "third_party_gateway",
             ),
-            (
-                "gatekeeper",
-                "User can list pending challenge codes."
-            )
+            ("gatekeeper", "gatekeeper"),
         )
 
 
@@ -87,17 +84,47 @@ class TimestampedModel(models.Model):
 
 
 # --------------------------------------------------------------------
-class ServiceGrants(TimestampedModel):
+class ServiceGrant(TimestampedModel):
     service_name = models.CharField(max_length=128)
     grant_name = models.CharField(max_length=128)
 
     class Meta:
         unique_together = ("service_name", "grant_name")
 
+    @classmethod
+    def join(cls, service_name: str, grant_name: str) -> str:
+        result = ":".join([service_name, grant_name])
+        cls.split(result)  # Assert no extra ':' seps snuck in by error.
+        return result
+
+    @classmethod
+    def split(cls, grant_code: str) -> tuple[str, str]:
+        service_name, grant_name = grant_code.split(":")
+        return (service_name, grant_name)
+
+    @classmethod
+    def by_code(cls, grant_code: str) -> "ServiceGrant":
+        service_name, grant_name = cls.split(grant_code)
+        return ServiceGrant.objects.get(
+            service_name=service_name, grant_name=grant_name
+        )
+
+    @classmethod
+    def by_user(cls, user: User) -> set[str]:
+        results = set()
+        for assignment in ServiceGrantAssignment.objects.filter(
+            user=user
+        ):
+            results.add(assignment.grant.to_code())
+        return results
+
+    def to_code(self) -> str:
+        return f"{self.service_name}:{self.grant_name}"
+
 
 # --------------------------------------------------------------------
 class ServiceGrantAssignment(TimestampedModel):
-    grant = models.ForeignKey(ServiceGrants, on_delete=models.CASCADE)
+    grant = models.ForeignKey(ServiceGrant, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     expiry_dt = models.DateTimeField()
 

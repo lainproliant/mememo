@@ -5,15 +5,17 @@
 # Date: Wednesday September 13, 2023
 # --------------------------------------------------------------------
 
+import asyncio
+import io
 import shlex
 
-import asyncio
 from bivalve.agent import BivalveAgent
 from bivalve.logging import LogManager
 
 import discord
 from mememo.agent import MememoAgent
 from mememo.config import Config
+from mememo.constants import ChatModes
 
 # --------------------------------------------------------------------
 log = LogManager().get(__name__)
@@ -32,7 +34,9 @@ class DiscordAgent(BivalveAgent):
         await asyncio.gather(super().run(), self.bot.start(config.discord.token))
 
     async def on_connect(self, _):
-        result = await self.call("auth", config.discord.mememo_user, config.discord.mememo_passwd)
+        result = await self.call(
+            "auth", config.discord.mememo_user, config.discord.mememo_passwd
+        )
         if result.code != result.Code.OK:
             log.critical(f"Discord agent authentication failed: {result}")
             self.shutdown()
@@ -52,6 +56,53 @@ class DiscordClient(discord.Client):
         )
         self.agent = agent
 
+    async def handle_message(self, message: discord.Message):
+        fn_name, *argv = [
+            x for x in shlex.split(message.content) if x != self.user.mention
+        ]
+
+        # Mask the agent `auth` function.
+        if fn_name == "auth":
+            fn_name = "auth3p"
+
+        try:
+            result = await self.agent.call(
+                fn_name,
+                "discord-" + str(message.author.id),
+                message.author.name,
+                *argv,
+            )
+
+            sb = io.StringIO()
+
+
+            if result.code == result.code.ERROR:
+                sb.write(":warning: Sorry, something went wrong.\n")
+                sb.write("```\n")
+                for line in result.content:
+                    sb.write(line + "\n")
+                sb.write("```\n")
+
+            else:
+                match result.content[0]:
+                    case ChatModes.CODE:
+                        sb.write("```\n")
+                        for line in result.content[1:]:
+                            sb.write(line)
+                        sb.write("```\n")
+
+                    case _:
+                        for line in result.content:
+                            sb.write(line)
+                        pass
+
+            await message.channel.send(sb.getvalue())
+
+        except Exception as e:
+            await message.channel.send(
+                f":boom: I'm sorry, I broke it!\n`{e.__class__.__qualname__}: {e}`"
+            )
+
     async def on_message(self, message):
         if message.author == self.user:
             return
@@ -59,24 +110,5 @@ class DiscordClient(discord.Client):
         if self.user in message.mentions or isinstance(
             message.channel, discord.DMChannel
         ):
-            fn_name, *argv = [
-                x for x in shlex.split(message.content) if x != self.user.mention
-            ]
-
-            # Mask the agent `auth` function.
-            if fn_name == "auth":
-                fn_name = "auth3p"
-
-            try:
-                result = await self.agent.call(
-                    fn_name,
-                    "discord-" + str(message.author.id),
-                    message.author.name,
-                    *argv,
-                )
-                await message.channel.send(f"```\n{repr(result.__dict__)}```")
-
-            except Exception as e:
-                await message.channel.send(
-                    f"I'm sorry, an error occurred.\n`{e.__class__.__qualname__}: {e}`"
-                )
+            async with message.channel.typing():
+                await self.handle_message(message)

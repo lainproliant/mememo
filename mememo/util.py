@@ -35,8 +35,8 @@ def parse_td(s: str) -> timedelta:
             case wrong:
                 raise ValueError(f"Invalid duration component: {wrong}")
 
-    day_part = ''.join(s.upper() for s in day_components)
-    time_part = ''.join(s.upper() for s in time_components)
+    day_part = "".join(s.upper() for s in day_components)
+    time_part = "".join(s.upper() for s in time_components)
 
     return isodate.parse_duration(f"P{day_part}T{time_part}")
 
@@ -46,7 +46,7 @@ def django_sync(f):
     @functools.wraps(f)
     async def wrapper(*args, **kwargs):
         if asyncio.iscoroutinefunction(f):
-            raise ValueError("Coroutine function can't be wrapped with django_sync.")
+            return await f(*args, **kwargs)
         return await sync_to_async(f)(*args, **kwargs)
 
     return wrapper

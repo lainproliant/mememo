@@ -13,6 +13,8 @@ dataclass-wizard = {extras = ["yaml"], version = "*"}
 xeno = "*"
 isodate = "*"
 croniter = "*"
+types-croniter = "*"
+selenium = "*"
 
 [dev-packages]
 neovim = "*"

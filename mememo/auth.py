@@ -56,44 +56,58 @@ def create_auth3p(identity: str, alias: str) -> ThirdPartyAuthentication:
 
 
 # --------------------------------------------------------------------
+def admin(f):
+    @functools.wraps(f)
+    async def wrapper(self: Any, conn: Connection, *argv):
+        session = self.sessions.get(conn.id)
+        if not session or not session.user or not session.user.is_superuser:
+            raise RuntimeError("Not permitted.")
+        return await django_sync(f)(self, conn, session.user, *argv)
+
+    return wrapper
+
+
+# --------------------------------------------------------------------
+def authorize_call(user: User, perms: list[str], *argv):
+    if not user.is_superuser and user.has_perm(Permissions.THIRD_PARTY_GATEWAY):
+        # This is a third party gateway user, representing a
+        # Discord or Slack agent.  We want to authenticate the
+        # third party user.
+        identity, alias, *real_argv = argv
+        third_party_auth = ThirdPartyAuthentication.objects.filter(
+            identity=identity
+        ).first()
+
+        if third_party_auth is None or third_party_auth.user is None:
+            raise RuntimeError("Third-party identity not authenticated yet.")
+
+        if timezone.now() >= third_party_auth.expiry_dt:
+            raise RuntimeError(
+                "Third-party identity authentication has expired, please re-authenticate."
+            )
+
+        user = third_party_auth.user
+
+    else:
+        real_argv = [*argv]
+
+    if perms and not user.has_perms(perms):
+        raise RuntimeError("Not permitted.")
+
+    return user, real_argv
+
+
+# --------------------------------------------------------------------
 def auth(f_or_perm: Union[str, Callable], *perms: str):
     def decorator(perms: list[str], f: Callable):
         @functools.wraps(f)
-        @django_sync
-        def wrapper(self: Any, conn: Connection, *argv):
+        async def wrapper(self: Any, conn: Connection, *argv):
             session = self.sessions.get(conn.id)
             if not session or not session.user:
                 raise RuntimeError("Not authenticated.")
 
-            if not session.user.is_superuser and session.user.has_perm(
-                Permissions.THIRD_PARTY_GATEWAY
-            ):
-                # This is a third party gateway user, representing a
-                # Discord or Slack agent.  We want to authenticate the
-                # third party user.
-                identity, alias, *real_argv = argv
-                third_party_auth = ThirdPartyAuthentication.objects.filter(
-                    identity=identity
-                ).first()
-
-                if third_party_auth is None or third_party_auth.user is None:
-                    raise RuntimeError("Third-party identity not authenticated yet.")
-
-                if timezone.now() >= third_party_auth.expiry_dt:
-                    raise RuntimeError(
-                        "Third-party identity authentication has expired, please re-authenticate."
-                    )
-
-                user = third_party_auth.user
-
-            else:
-                user = session.user
-                real_argv = [*argv]
-
-            if perms and not user.has_perms(perms):
-                raise RuntimeError("Not permitted.")
-
-            return f(self, user, *real_argv)
+            user, real_argv = await django_sync(authorize_call)(session.user, perms, *argv)
+            return await django_sync(f)(self, conn, user, *real_argv)
 
         return wrapper
 

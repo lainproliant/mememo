@@ -47,8 +47,12 @@ class Auth3pConfig(YAMLWizard):
 class DiscordConfig(YAMLWizard):
     enabled: bool = False
     token: str = "your-discord-bot-token-here"
+    client_timeout: str = "60s"
     mememo_user: str = "discord-agent"
     mememo_passwd: str = "agent-password-here"
+
+    def get_client_timeout(self) -> int:
+        return parse_td(self.client_timeout).total_seconds()
 
 
 # --------------------------------------------------------------------
@@ -60,7 +64,10 @@ class ServiceDefinition(YAMLWizard):
     env: dict[str, str]
     setup: str = ""
     cache: Optional[str] = None
+    refresh: Optional[str] = None
     schedule: Optional[str] = None
+    required_grants: list[str] = field(default_factory=list)
+    doc: Optional[str] = None
     catchup = False
     enabled = False
 
@@ -69,11 +76,10 @@ class ServiceDefinition(YAMLWizard):
             return None
         return parse_td(self.cache)
 
-
-# --------------------------------------------------------------------
-@dataclass
-class ServiceConfig(YAMLWizard):
-    services: dict[str, ServiceDefinition] = field(default_factory=dict)
+    def get_refresh_interval(self) -> Optional[timedelta]:
+        if self.refresh is None:
+            return None
+        return parse_td(self.refresh)
 
 
 # --------------------------------------------------------------------
@@ -100,7 +106,7 @@ class Config(YAMLWizard):
     system: SystemConfig = field(default_factory=SystemConfig)
     auth3p: Auth3pConfig = field(default_factory=Auth3pConfig)
     discord: DiscordConfig = field(default_factory=DiscordConfig)
-    services: ServiceConfig = field(default_factory=ServiceConfig)
+    services: dict[str, ServiceDefinition] = field(default_factory=dict)
     env: dict[str, str] = field(default_factory=dict)
 
     @classmethod
