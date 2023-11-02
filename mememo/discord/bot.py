@@ -15,6 +15,7 @@ import discord
 from mememo.agent import MememoAgent
 from mememo.config import Config
 from mememo.discord.response import DiscordResponseDigestor, ResponseContext
+from mememo.service import ServiceManager
 
 # --------------------------------------------------------------------
 log = LogManager().get(__name__)
@@ -23,9 +24,9 @@ config = Config.get()
 
 # --------------------------------------------------------------------
 class DiscordAgent(BivalveAgent):
-    def __init__(self, peer: MememoAgent):
+    def __init__(self, service_manager: ServiceManager, peer: MememoAgent):
         super().__init__()
-        self.bot = DiscordClient(self)
+        self.bot = DiscordClient(service_manager, self)
         self.peer = peer
 
     async def run(self):
@@ -49,16 +50,18 @@ class DiscordAgent(BivalveAgent):
 
 # --------------------------------------------------------------------
 class DiscordClient(discord.Client):
-    def __init__(self, agent: DiscordAgent):
+    def __init__(self, service_manager: ServiceManager, agent: DiscordAgent):
         super().__init__(intents=discord.Intents.all())
+        self.service_manager = service_manager
         self.agent = agent
         self.allowed_mentions = discord.AllowedMentions.all()
         self.digestor = DiscordResponseDigestor()
 
-    async def handle_message(self, message: discord.Message):
-        fn_name, *argv = [
-            x for x in shlex.split(message.content) if x != config.discord.sigil
-        ]
+    async def handle_message(self, message: discord.Message, sigil: str):
+        *full_argv = shlex.split(message.content)
+        if full_argv[0] == config.discord.sigil:
+            full_argv.pop(0)
+        fn_name, *argv = full_argv
 
         # Mask the agent `auth` function.
         if fn_name == "auth":
@@ -93,8 +96,10 @@ class DiscordClient(discord.Client):
         if message.author == self.user:
             return
 
-        if message.content.startswith(config.discord.sigil) or isinstance(
-            message.channel, discord.DMChannel
+        if (
+            self.service_manager.has_message_handler(message.content)
+            or message.content.starstwith(config.discord.sigil)
+            or isinstance(message.channel, discord.DMChannel)
         ):
             async with message.channel.typing():
                 await self.handle_message(message)

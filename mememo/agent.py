@@ -5,6 +5,7 @@
 # Date: Wednesday September 13, 2023
 # --------------------------------------------------------------------
 
+import shlex
 from typing import Optional
 
 from bivalve.agent import BivalveAgent
@@ -38,12 +39,12 @@ log = LogManager().get(__name__)
 
 # --------------------------------------------------------------------
 class MememoAgent(BivalveAgent):
-    def __init__(self, host, port):
+    def __init__(self, service_manager: ServiceManager, host, port):
         super().__init__()
         self.sessions: dict[Connection.ID, Session] = {}
         self.host = host
         self.port = port
-        self.service_manager = ServiceManager()
+        self.service_manager = service_manager
 
     async def run(self):
         try:
@@ -357,7 +358,8 @@ class MememoAgent(BivalveAgent):
         """
 
         user = User.objects.get(username=username)
-        assert passwdA == passwdB
+        if passwdA != passwdB:
+            raise ValueError("Passwords do not match.")
         user.set_password(passwdA)
         user.save()
 
@@ -393,13 +395,19 @@ class MememoAgent(BivalveAgent):
     async def on_unrecognized_function(self, conn: Connection, *argv):
         session = self.sessions[conn.id]
         fn_name, *real_argv = argv
+        message = shlex.join(argv)
         user, fn_argv = await django_sync(authorize_call)(session.user, [], *real_argv)
 
         ctx = ServiceCallContext(user, fn_name, [*fn_argv])
-        service = self.service_manager.get_handler(fn_name)
+
+        if self.service_manager.has_message_handler(message):
+            service = self.service_manager.get_message_handler(message)
+        else:
+            service = self.service_manager.get_function_handler(fn_name)
+
         try:
             await service.prepare(self.service_manager.instance_id, ctx)
-            return await service.update(self.service_manager.instance_id, ctx)
+            return await service.invoke(self.service_manager.instance_id, ctx)
 
         except Exception as e:
             log.exception("Failed to invoke service handler.")

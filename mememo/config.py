@@ -1,4 +1,4 @@
-# --------------------------------------------------------------------
+e --------------------------------------------------------------------
 # config.py
 #
 # Author: Lain Musgrove (lain.musgrove@hearst.com)
@@ -58,7 +58,7 @@ class DiscordConfig(YAMLWizard):
 
 # --------------------------------------------------------------------
 @dataclass
-class ServiceDefinition(YAMLWizard):
+class ThirdPartyServiceDefinition(YAMLWizard):
     repo: str
     run: str
     handles: str
@@ -107,7 +107,7 @@ class Config(YAMLWizard):
     system: SystemConfig = field(default_factory=SystemConfig)
     auth3p: Auth3pConfig = field(default_factory=Auth3pConfig)
     discord: DiscordConfig = field(default_factory=DiscordConfig)
-    services: dict[str, ServiceDefinition] = field(default_factory=dict)
+    services: dict[str, ThirdPartyServiceDefinition] = field(default_factory=dict)
     env: dict[str, str] = field(default_factory=dict)
 
     @classmethod

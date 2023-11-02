@@ -95,7 +95,28 @@ class TimestampedBasePath:
 
 
 # --------------------------------------------------------------------
-class Service(TimestampedBasePath):
+class Service:
+    def __init__(self, name: Optional[str] = None):
+        self.name = name or (self.__class__.__module__ + self.__class__.__qualname__)
+        self.log = log.getChild(name)
+
+    def handles_function(self, fn_name: str) -> bool:
+        raise NotImplementedError()
+
+    def handles_message(self, message: str) -> bool:
+        return False
+
+    async def prepare(self, instance_id: str, ctx: Optional[ServiceCallContext] = None):
+        pass
+
+    async def invoke(
+        self, instance_id: str, ctx: Optional[ServiceCallContext] = None
+    ) -> str:
+        raise NotImplementedError()
+
+
+# --------------------------------------------------------------------
+class ThirdPartyService(Service, TimestampedBasePath):
     def __init__(self, name: str, definition: ServiceDefinition):
         self.name = name
         self.definition = definition
@@ -115,6 +136,9 @@ class Service(TimestampedBasePath):
 
     def instance_file_path(self) -> Path:
         return self.base_path() / INSTANCE_FILE
+
+    def handles(self, fn_name: str) -> bool:
+        return re.compile(self.definition.handles).match(fn_name) is not None
 
     @property
     def instance_id(self) -> str:
@@ -180,7 +204,7 @@ class Service(TimestampedBasePath):
             await self._setup()
             self.instance_id = instance_id
 
-    async def update(
+    async def invoke(
         self, instance_id: str, ctx: Optional[ServiceCallContext] = None
     ) -> str:
         if ctx is not None:
@@ -275,14 +299,22 @@ class Service(TimestampedBasePath):
 class ServiceManager(TimestampedBasePath):
     def __init__(self):
         self.base_path().mkdir(parents=True, exist_ok=True)
+        self.services: list[Service] = []
         self.instance_id = new_id()
+
+    def install(self, svc: Service):
+        self.services.append(svc)
 
     def base_path(self):
         return BASE_PATH
 
-    def services(self) -> Iterable[Service]:
+    def third_party_services(self) -> Iterable[ThirdPartyService]:
         for name, definition in Config.get().services.items():
-            yield Service(name, definition)
+            yield ThirdPartyService(name, definition)
+
+    def services(self) -> Iterable[Service]:
+        yield from self.third_party_services()
+        yield from self.services
 
     async def scheduled_update(self):
         now = datetime.now()
@@ -298,16 +330,30 @@ class ServiceManager(TimestampedBasePath):
     async def update(self):
         now = datetime.now()
 
-        for service in self.services():
+        for service in self.third_party_services():
             if service.next_update_time(self.last_update_dt) < now:
                 await service.prepare(self.instance_id)
-                await service.update(self.instance_id)
+                await service.invoke(self.instance_id)
 
         self.last_update_dt = datetime.now()
         self.next_update_dt = now + Config().get().system.get_service_update_delay()
 
-    def get_handler(self, fn_name: str):
+    def has_message_handler(self, message: str) -> Service:
+        try:
+            self.get_message_handler(message)
+            return True
+
+        except NotImplementedError:
+            return False
+
+    def get_message_handler(self, message: str) -> Service:
         for service in self.services():
-            if re.compile(service.definition.handles).match(fn_name):
+            if service.handles_message(message):
+                return service
+        raise NotImplementedError()
+
+    def get_function_handler(self, fn_name: str) -> Service:
+        for service in self.services():
+            if service.handles(fn_name):
                 return service
         raise NotImplementedError()

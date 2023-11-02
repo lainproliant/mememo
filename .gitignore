@@ -7,3 +7,4 @@ Pipfile.lock
 .DS_Store
 **/*.pyc
 **/__pycache__
+**/.mypy_cache

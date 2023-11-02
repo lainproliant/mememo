@@ -14,6 +14,12 @@ from asgiref.sync import sync_to_async
 
 
 # --------------------------------------------------------------------
+def rt_assert(value: bool, msg: str):
+    if not value:
+        raise RuntimeError(msg)
+
+
+# --------------------------------------------------------------------
 def parse_td(s: str) -> timedelta:
     components = []
     day_components = []
