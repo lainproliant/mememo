@@ -7,10 +7,19 @@
 
 import asyncio
 import functools
+import io
 from datetime import timedelta
+from typing import Optional
 
 import isodate
 from asgiref.sync import sync_to_async
+from bivalve.util import Commands as CommandMap
+
+
+# --------------------------------------------------------------------
+def rt_assert(value: bool, msg: str):
+    if not value:
+        raise RuntimeError(msg)
 
 
 # --------------------------------------------------------------------
@@ -50,3 +59,31 @@ def django_sync(f):
         return await sync_to_async(f)(*args, **kwargs)
 
     return wrapper
+
+
+# --------------------------------------------------------------------
+def format_command_help(cmd_map: CommandMap, command: Optional[str] = None) -> str:
+    sb = io.StringIO()
+    commands = cmd_map.list()
+
+    if command is None:
+        usages = []
+        for fn_name in commands:
+            docs: str = cmd_map.get(fn_name).__doc__.strip()
+            usages.append(docs.splitlines(keepends=False)[0][1:-1])
+
+        usages.sort()
+        content = "\n".join(usages)
+        print("```", file=sb)
+        print(content, file=sb)
+        print("```", file=sb)
+
+    else:
+        content_lines = [
+            line.strip()
+            for line in cmd_map.get(command).__doc__.strip().splitlines(keepends=False)
+        ]
+        for line in content_lines:
+            print(line, file=sb)
+
+    return sb.getvalue()

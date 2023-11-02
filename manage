@@ -1,0 +1,9 @@
+#!/bin/bash
+#
+# manage.sh
+#
+# Author: Lain Musgrove (lain.proliant@gmail.com)
+# Date: Thursday November 2, 2023
+#
+
+pipenv run python manage.py $@

@@ -73,6 +73,9 @@ def admin(f):
 
 # --------------------------------------------------------------------
 def authorize_call(user: User, perms: list[str], *argv):
+    if user is None:
+        raise RuntimeError("Not authenticated yet.")
+
     if not user.is_superuser and user.has_perm(Permissions.THIRD_PARTY_GATEWAY):
         # This is a third party gateway user, representing a
         # Discord or Slack agent.  We want to authenticate the

@@ -8,7 +8,6 @@
 from datetime import datetime, timedelta
 
 import shortuuid
-from mememo.config import Config
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db import models
