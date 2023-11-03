@@ -124,8 +124,8 @@ class LedgerService(Service):
             cmd = argv.pop(0)
 
         rt_assert(
-            self.assert_grants(ctx, "ledger:all")
-            or self.assert_grants(ctx, f"ledger:{cmd}"),
+            django_sync(self.assert_grants)(ctx, "ledger:all")
+            or django_sync(self.assert_grants)(ctx, f"ledger:{cmd}"),
             "Not authorized.",
         )
         handler = self.commands.get(cmd)
