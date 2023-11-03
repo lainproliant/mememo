@@ -412,7 +412,7 @@ class LedgerService(Service):
             from_account=account,
             to_account=None,
             amount=amount,
-            note=shlex.join(argv),
+            note=' '.join(argv),
         )
         txn.save()
         return txn_result(txn, account)
@@ -497,7 +497,7 @@ class LedgerService(Service):
         if len(args) == 0:
             note = None
         else:
-            note = shlex.join(args)
+            note = ' '.join(args)
 
         txn = Transaction(
             agent=ctx.user,
