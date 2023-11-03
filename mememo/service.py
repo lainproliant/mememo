@@ -197,6 +197,7 @@ class ThirdPartyService(Service, TimestampedBasePath):
         return cron.get_next(datetime)
 
     async def refresh(self):
+        self.cached_result_path().unlink(missing_ok=True)
         await self._git_pull()
         await self._setup()
 
@@ -209,7 +210,7 @@ class ThirdPartyService(Service, TimestampedBasePath):
             await self._setup()
 
         if self.instance_id != instance_id:
-            await self._setup()
+            await self.refresh()
             self.instance_id = instance_id
 
     async def invoke(

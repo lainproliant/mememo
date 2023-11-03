@@ -75,6 +75,7 @@ class DiscordClient(discord.Client):
                 "discord-" + str(message.author.id),
                 message.author.name,
                 *argv,
+                timeout_ms=config.discord.get_client_timeout() * 1000
             )
 
             if result.code == result.code.ERROR:

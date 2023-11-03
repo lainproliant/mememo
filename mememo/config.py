@@ -48,13 +48,13 @@ class Auth3pConfig(YAMLWizard):
 class DiscordConfig(YAMLWizard):
     enabled: bool = False
     token: str = "your-discord-bot-token-here"
-    client_timeout: str = "60s"
+    timeout: str = "120s"
     mememo_user: str = "discord-agent"
     mememo_passwd: str = "agent-password-here"
     sigil: str = "!mememo"
 
     def get_client_timeout(self) -> int:
-        return parse_td(self.client_timeout).total_seconds()
+        return parse_td(self.timeout).total_seconds()
 
 
 # --------------------------------------------------------------------
