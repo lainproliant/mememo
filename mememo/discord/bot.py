@@ -98,7 +98,7 @@ class DiscordClient(discord.Client):
 
         if (
             self.service_manager.has_message_handler(message.content)
-            or message.content.starstwith(config.discord.sigil)
+            or message.content.startswith(config.discord.sigil)
             or isinstance(message.channel, discord.DMChannel)
         ):
             async with message.channel.typing():
