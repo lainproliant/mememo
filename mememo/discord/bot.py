@@ -58,7 +58,7 @@ class DiscordClient(discord.Client):
         self.digestor = DiscordResponseDigestor()
 
     async def handle_message(self, message: discord.Message, sigil: str):
-        *full_argv = shlex.split(message.content)
+        full_argv = shlex.split(message.content)
         if full_argv[0] == config.discord.sigil:
             full_argv.pop(0)
         fn_name, *argv = full_argv

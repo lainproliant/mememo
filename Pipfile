@@ -15,6 +15,8 @@ isodate = "*"
 croniter = "*"
 types-croniter = "*"
 selenium = "*"
+tabulate = "*"
+price-parser = "*"
 
 [dev-packages]
 neovim = "*"

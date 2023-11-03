@@ -13,16 +13,16 @@ from bivalve.aio import Connection
 from bivalve.logging import LogManager
 from django.contrib.auth.models import Permission, User
 from django.utils import timezone
-from mememo.config import Config
 
 from mememo.auth import (
     Session,
     admin,
     auth,
     authenticate,
-    create_auth3p,
     authorize_call,
+    create_auth3p,
 )
+from mememo.config import Config
 from mememo.constants import Permissions
 from mememo.models import (
     ServiceGrant,
@@ -31,7 +31,7 @@ from mememo.models import (
     new_random_pw,
 )
 from mememo.service import ServiceCallContext, ServiceManager
-from mememo.util import django_sync
+from mememo.util import django_sync, format_command_help
 
 # --------------------------------------------------------------------
 log = LogManager().get(__name__)
@@ -79,6 +79,16 @@ class MememoAgent(BivalveAgent):
         if session.user is None:
             raise RuntimeError("Invalid credentials.")
         return f"Authenticated as `{session.user.username}`."
+
+    async def fn_help(self, conn: Connection, command: Optional[str] = None):
+        """
+        `help [command]`
+
+        Get help about the available agent functions.  If `command` is not specified,
+        all commands are printed with their usage lines.
+        """
+
+        return format_command_help(self._functions, command)
 
     @django_sync
     def fn_auth3p(
@@ -219,11 +229,7 @@ class MememoAgent(BivalveAgent):
 
         for auth3p in auth3p_filter:
             results.append(f"{auth3p.identity} ({auth3p.alias}): {auth3p.challenge}\n")
-        return [
-            "```\n",
-            *results,
-            "```\n"
-        ]
+        return ["```\n", *results, "```\n"]
 
     @auth(Permissions.GATEKEEPER)
     def fn_grant(
@@ -286,11 +292,7 @@ class MememoAgent(BivalveAgent):
         else:
             for grant in ServiceGrant.by_user(User.objects.get(username=username)):
                 results.append(grant)
-        return [
-            "```\n",
-            *results,
-            "```\n"
-        ]
+        return ["```\n", *results, "```\n"]
 
     @admin
     def fn_lspermit(self, conn: Connection, user: User):
@@ -305,11 +307,7 @@ class MememoAgent(BivalveAgent):
         results = []
         for perm in Permission.objects.all():
             results.append(f"{perm.codename}\n")
-        return [
-            "```\n",
-            *results,
-            "```\n"
-        ]
+        return ["```\n", *results, "```\n"]
 
     @admin
     def fn_lsuser(self, conn: Connection, user: User):
@@ -324,11 +322,7 @@ class MememoAgent(BivalveAgent):
         results = []
         for user in User.objects.all():
             results.append(f"{user.username}\n")
-        return [
-            "```\n",
-            *results,
-            "```\n"
-        ]
+        return ["```\n", *results, "```\n"]
 
     @admin
     def fn_mkgrant(self, conn: Connection, user: User, grant_code: str):

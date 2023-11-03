@@ -19,7 +19,7 @@ from bivalve.logging import LogManager
 from django.contrib.auth.models import User
 from xeno.shell import Shell
 
-from mememo.config import Config, ServiceDefinition
+from mememo.config import Config, ThirdPartyServiceDefinition
 from mememo.util import django_sync
 from mememo.models import ServiceGrant
 from mememo.models import new_id
@@ -98,7 +98,7 @@ class TimestampedBasePath:
 class Service:
     def __init__(self, name: Optional[str] = None):
         self.name = name or (self.__class__.__module__ + self.__class__.__qualname__)
-        self.log = log.getChild(name)
+        self.log = log.getChild(self.name)
 
     def handles_function(self, fn_name: str) -> bool:
         raise NotImplementedError()
@@ -114,10 +114,18 @@ class Service:
     ) -> str:
         raise NotImplementedError()
 
+    def assert_grants(self, ctx: Optional[ServiceCallContext], *grants: str) -> bool:
+        if ctx is None:
+            return False
+        if ctx.user.is_superuser:
+            return True
+        user_grants = ctx.get_grants()
+        return all(grant in user_grants for grant in grants)
+
 
 # --------------------------------------------------------------------
 class ThirdPartyService(Service, TimestampedBasePath):
-    def __init__(self, name: str, definition: ServiceDefinition):
+    def __init__(self, name: str, definition: ThirdPartyServiceDefinition):
         self.name = name
         self.definition = definition
         self.log = log.getChild(name)
@@ -137,7 +145,7 @@ class ThirdPartyService(Service, TimestampedBasePath):
     def instance_file_path(self) -> Path:
         return self.base_path() / INSTANCE_FILE
 
-    def handles(self, fn_name: str) -> bool:
+    def handles_function(self, fn_name: str) -> bool:
         return re.compile(self.definition.handles).match(fn_name) is not None
 
     @property
@@ -299,11 +307,11 @@ class ThirdPartyService(Service, TimestampedBasePath):
 class ServiceManager(TimestampedBasePath):
     def __init__(self):
         self.base_path().mkdir(parents=True, exist_ok=True)
-        self.services: list[Service] = []
+        self._services: list[Service] = []
         self.instance_id = new_id()
 
     def install(self, svc: Service):
-        self.services.append(svc)
+        self._services.append(svc)
 
     def base_path(self):
         return BASE_PATH
@@ -314,7 +322,7 @@ class ServiceManager(TimestampedBasePath):
 
     def services(self) -> Iterable[Service]:
         yield from self.third_party_services()
-        yield from self.services
+        yield from self._services
 
     async def scheduled_update(self):
         now = datetime.now()
@@ -338,7 +346,7 @@ class ServiceManager(TimestampedBasePath):
         self.last_update_dt = datetime.now()
         self.next_update_dt = now + Config().get().system.get_service_update_delay()
 
-    def has_message_handler(self, message: str) -> Service:
+    def has_message_handler(self, message: str) -> bool:
         try:
             self.get_message_handler(message)
             return True
@@ -354,6 +362,6 @@ class ServiceManager(TimestampedBasePath):
 
     def get_function_handler(self, fn_name: str) -> Service:
         for service in self.services():
-            if service.handles(fn_name):
+            if service.handles_function(fn_name):
                 return service
         raise NotImplementedError()

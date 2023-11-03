@@ -1,16 +1,17 @@
-e --------------------------------------------------------------------
+# --------------------------------------------------------------------
 # config.py
 #
 # Author: Lain Musgrove (lain.musgrove@hearst.com)
 # Date: Sunday October 8, 2023
 # --------------------------------------------------------------------
 
+import locale
 import os
 import sys
 import traceback
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import cast, Optional
+from typing import Optional, cast
 
 from dataclass_wizard import YAMLWizard
 
@@ -109,6 +110,9 @@ class Config(YAMLWizard):
     discord: DiscordConfig = field(default_factory=DiscordConfig)
     services: dict[str, ThirdPartyServiceDefinition] = field(default_factory=dict)
     env: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self):
+        locale.setlocale(locale.LC_ALL, "")
 
     @classmethod
     def load(cls):
