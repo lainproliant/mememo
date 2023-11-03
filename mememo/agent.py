@@ -5,6 +5,7 @@
 # Date: Wednesday September 13, 2023
 # --------------------------------------------------------------------
 
+import io
 import shlex
 from typing import Optional
 
@@ -80,7 +81,8 @@ class MememoAgent(BivalveAgent):
             raise RuntimeError("Invalid credentials.")
         return f"Authenticated as `{session.user.username}`."
 
-    async def fn_help(self, conn: Connection, command: Optional[str] = None):
+    @auth
+    async def fn_help(self, conn: Connection, user: User, command: Optional[str] = None):
         """
         `help [command]`
 
@@ -229,7 +231,12 @@ class MememoAgent(BivalveAgent):
 
         for auth3p in auth3p_filter:
             results.append(f"{auth3p.identity} ({auth3p.alias}): {auth3p.challenge}\n")
-        return ["```\n", *results, "```\n"]
+        sb = io.StringIO()
+        print("```", file=sb)
+        for result in results:
+            print(result, file=sb)
+        print("```", file=sb)
+        return sb.getvalue()
 
     @auth(Permissions.GATEKEEPER)
     def fn_grant(
@@ -292,7 +299,12 @@ class MememoAgent(BivalveAgent):
         else:
             for grant in ServiceGrant.by_user(User.objects.get(username=username)):
                 results.append(grant)
-        return ["```\n", *results, "```\n"]
+        sb = io.StringIO()
+        print("```", file=sb)
+        for result in results:
+            print(result, file=sb)
+        print("```", file=sb)
+        return sb.getvalue()
 
     @admin
     def fn_lspermit(self, conn: Connection, user: User):
@@ -307,7 +319,12 @@ class MememoAgent(BivalveAgent):
         results = []
         for perm in Permission.objects.all():
             results.append(f"{perm.codename}\n")
-        return ["```\n", *results, "```\n"]
+        sb = io.StringIO()
+        print("```", file=sb)
+        for result in results:
+            print(result, file=sb)
+        print("```", file=sb)
+        return sb.getvalue()
 
     @admin
     def fn_lsuser(self, conn: Connection, user: User):
@@ -322,7 +339,12 @@ class MememoAgent(BivalveAgent):
         results = []
         for user in User.objects.all():
             results.append(f"{user.username}\n")
-        return ["```\n", *results, "```\n"]
+        sb = io.StringIO()
+        print("```", file=sb)
+        for result in results:
+            print(result, file=sb)
+        print("```", file=sb)
+        return sb.getvalue()
 
     @admin
     def fn_mkgrant(self, conn: Connection, user: User, grant_code: str):

@@ -59,7 +59,7 @@ class DiscordClient(discord.Client):
 
     async def handle_message(self, message: discord.Message, sigil: str):
         full_argv = shlex.split(message.content)
-        if full_argv[0] == config.discord.sigil:
+        if full_argv[0] == sigil:
             full_argv.pop(0)
         fn_name, *argv = full_argv
 
@@ -103,4 +103,4 @@ class DiscordClient(discord.Client):
             or isinstance(message.channel, discord.DMChannel)
         ):
             async with message.channel.typing():
-                await self.handle_message(message)
+                await self.handle_message(message, config.discord.sigil)

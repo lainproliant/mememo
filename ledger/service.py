@@ -6,7 +6,6 @@
 # --------------------------------------------------------------------
 
 import io
-import locale
 import re
 import shlex
 from decimal import Decimal
@@ -38,7 +37,7 @@ def parse_money(s: str) -> Decimal:
 
 # --------------------------------------------------------------------
 def format_money(value: Decimal) -> str:
-    return locale.currency(value)
+    return f"${value}"
 
 
 # --------------------------------------------------------------------
@@ -410,8 +409,8 @@ class LedgerService(Service):
         assert account is not None
         txn = Transaction(
             agent=ctx.user,
-            from_account=None,
-            to_account=account,
+            from_account=account,
+            to_account=None,
             amount=amount,
             note=shlex.join(argv),
         )
