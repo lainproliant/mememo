@@ -31,6 +31,7 @@ from mememo.models import (
     ServiceGrant,
     ServiceGrantAssignment,
     ThirdPartyAuthentication,
+    new_auth_token
 )
 from mememo.service import ServiceCallContext, ServiceManager
 from mememo.util import django_sync, format_command_help
@@ -94,7 +95,7 @@ class MememoAgent(BivalveAgent):
             if session.user is None:
                 raise RuntimeError("Invalid credentials.")
 
-        return f"Authenticated as `{session.user.username}`."
+        return f"Authenticated as `{session.user.username}`.\n"
 
     @auth
     async def fn_help(
@@ -168,7 +169,7 @@ class MememoAgent(BivalveAgent):
         auth3p.challenge = ""
         auth3p.expiry_dt = now + Config.get().auth3p.get_expiry()
         auth3p.save()
-        return f"You're authenticated, @<{user.username}>.  Your authorization will expire on {auth3p.expiry_dt.isoformat()}."
+        return f"You're authenticated, @<{user.username}>.  Your authorization will expire on {auth3p.expiry_dt.isoformat()}.\n"
 
     @auth(Permissions.GATEKEEPER)
     def fn_user(
@@ -194,12 +195,12 @@ class MememoAgent(BivalveAgent):
                 if passwd is not None:
                     user.set_password(passwd)
                     user.save()
-                    return f"Created new user `{user.username}`."
+                    return f"Created new user `{user.username}`.\n"
                 else:
-                    passwd = new_random_pw()
+                    passwd = new_auth_token()
                     user.set_password(passwd)
                     return (
-                        f"Created new user `{user.username}` with password `{passwd}`."
+                        f"Created new user `{user.username}` with password `{passwd}`.\n"
                     )
 
             case "rm":
@@ -209,7 +210,7 @@ class MememoAgent(BivalveAgent):
                         "Non-superusers are not allowed to remove superusers."
                     )
                 user.delete()
-                return f"Removed user `{user.username}`."
+                return f"Removed user `{user.username}`.\n"
 
             case _:
                 raise ValueError(f"Invalid mode: `{mode}`")
@@ -224,7 +225,7 @@ class MememoAgent(BivalveAgent):
 
         Allowed: any authenticated user
         """
-        return f"Hello, @<{user.username}>!"
+        return f"Hello, @<{user.username}>!\n"
 
     @auth(Permissions.GATEKEEPER)
     def fn_lsauth3p(self, conn: Connection, user: User, username: Optional[str] = None):
@@ -279,7 +280,7 @@ class MememoAgent(BivalveAgent):
                 grant = ServiceGrant.by_code(grant_code)
                 assignment = ServiceGrantAssignment(user=user, grant=grant)
                 assignment.save()
-                return f"Service grant `{grant.to_code()}` added to `{user.username}`."
+                return f"Service grant `{grant.to_code()}` added to `{user.username}`.\n"
 
             case "rm":
                 grant = ServiceGrant.by_code(grant_code)
@@ -291,7 +292,7 @@ class MememoAgent(BivalveAgent):
 
             case "purge":
                 ServiceGrantAssignment.objects.filter(user=user).delete()
-                return f"Removed all service grants from `{user.username}`."
+                return f"Removed all service grants from `{user.username}`.\n"
 
             case _:
                 raise ValueError(f"Invalid mode: `{mode}`")
@@ -401,7 +402,7 @@ class MememoAgent(BivalveAgent):
         user = User.objects.get(username=username)
         user_token = AuthToken.objects.get(user=user)
         user_token.delete()
-        return f"Deleted auth token for `{user.username}`."
+        return f"Deleted auth token for `{user.username}`.\n"
 
     @admin
     def fn_mkgrant(self, conn: Connection, user: User, grant_code: str):
@@ -416,7 +417,7 @@ class MememoAgent(BivalveAgent):
         service_name, grant_name = ServiceGrant.split(grant_code)
         grant = ServiceGrant(service_name=service_name, grant_name=grant_name)
         grant.save()
-        return f"Created service grant `{grant.to_code()}`"
+        return f"Created service grant `{grant.to_code()}`.\n"
 
     @admin
     def fn_passwd(
@@ -436,7 +437,7 @@ class MememoAgent(BivalveAgent):
         user.set_password(passwdA)
         user.save()
 
-        return f"Password for user `{username}` has been changed."
+        return f"Password for user `{username}` has been changed.\n"
 
     @admin
     def fn_permit(
@@ -457,11 +458,11 @@ class MememoAgent(BivalveAgent):
             case "add":
                 user.user_permissions.add(permission)
                 user.save()
-                return f"System permission `{perm}` added for user `{username}`."
+                return f"System permission `{perm}` added for user `{username}`.\n"
             case "rm":
                 user.user_permissions.remove(permission)
                 user.save()
-                return f"System permission `{perm}` removed for user `{username}`."
+                return f"System permission `{perm}` removed for user `{username}`.\n"
             case _:
                 raise ValueError(f"Invalid mode: `{mode}`")
 

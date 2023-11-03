@@ -189,9 +189,9 @@ class LedgerService(Service):
                 self.assert_grants(ctx, "ledger:others"),
                 "You aren't allowed to set the default account for other users.",
             )
-            return f"Set `{account.name}` as the default account for `{username}`."
+            return f"Set `{account.name}` as the default account for `{username}`.\n"
         account.set_as_default_for_user(ctx.user)
-        return f"Set `{account.name}` as your default account."
+        return f"Set `{account.name}` as your default account.\n"
 
     def cmd_rmdefault(self, ctx: ServiceCallContext) -> str:
         """
@@ -256,7 +256,7 @@ class LedgerService(Service):
         account.save()
         account_access = AccountAccess(user=owner_user, account=account, is_owner=True)
         account_access.save()
-        return f"Created account `{account.name}` for `{account_access.user.username}`."
+        return f"Created account `{account.name}` for `{account_access.user.username}`.\n"
 
     def cmd_rmaccount(self, ctx: ServiceCallContext, account_name: str) -> str:
         """
@@ -347,7 +347,7 @@ class LedgerService(Service):
         user = User.objects.get(username=username)
         access = AccountAccess(user=user, account=account)
         access.save()
-        return f"Access granted for user `{user.username}` to account `{account.name}`"
+        return f"Access granted for user `{user.username}` to account `{account.name}`\n"
 
     def cmd_revokeaccess(
         self, ctx: ServiceCallContext, account_name: str, username: str
@@ -367,7 +367,7 @@ class LedgerService(Service):
         user = User.objects.get(username=username)
         access = AccountAccess.objects.get(user=user, account=account)
         access.delete()
-        return f"Access revoked for user `{user.username}` to account `{account.name}`"
+        return f"Access revoked for user `{user.username}` to account `{account.name}`\n"
 
     def cmd_spend(self, ctx: ServiceCallContext, *args) -> str:
         """
