@@ -45,9 +45,7 @@ class Account(TimestampedModel):
         return True
 
     def set_as_default_for_user(self, user: User):
-        access = AccountAccess.objects.filter(user=user, account=self).first()
-        if not access:
-            raise ValueError("User does not have access to this account.")
+        access = AccountAccess.objects.get(user=user, account=self)
         Account.clear_defaults_for_user(user)
         access.is_default = True
         access.save()

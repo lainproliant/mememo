@@ -183,7 +183,7 @@ class LedgerService(Service):
         if account is None:
             raise ValueError("Account not found.")
         if username and username != ctx.user.username:
-            user = User.objects.filter(username=username)
+            user = User.objects.get(username=username)
             account.set_as_default_for_user(user)
             rt_assert(
                 self.assert_grants(ctx, "ledger:others"),
@@ -398,7 +398,7 @@ class LedgerService(Service):
                 "No account specified and you have no default account set.",
             )
         else:
-            account = Account.objects.filter(name=account_name)
+            account = Account.objects.get(name=account_name)
             rt_assert(
                 account is not None and account.has_access(ctx.user),
                 "You don't have access to this account.",
