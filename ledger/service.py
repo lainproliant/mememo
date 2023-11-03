@@ -21,7 +21,7 @@ from price_parser import Price
 from ledger.models import Account, AccountAccess, Transaction
 
 # --------------------------------------------------------------------
-TABLE_WIDTH = 70
+TABLE_WIDTH = 120
 RX_MONEY = r"\$\d+(,?\d{3})*(\.\d{2})?"
 DATE_FORMAT = "%Y-%m-%d %H:%M"
 SIGILS = ["!cash", "!$"]
@@ -37,7 +37,7 @@ def parse_money(s: str) -> Decimal:
 
 # --------------------------------------------------------------------
 def format_money(value: Decimal) -> str:
-    return f"${value}"
+    return f"${value:.2f}"
 
 
 # --------------------------------------------------------------------
