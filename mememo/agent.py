@@ -7,6 +7,7 @@
 
 import io
 import shlex
+import secrets
 from typing import Optional
 
 from bivalve.agent import BivalveAgent
@@ -26,10 +27,10 @@ from mememo.auth import (
 from mememo.config import Config
 from mememo.constants import Permissions
 from mememo.models import (
+    AuthToken,
     ServiceGrant,
     ServiceGrantAssignment,
     ThirdPartyAuthentication,
-    new_random_pw,
 )
 from mememo.service import ServiceCallContext, ServiceManager
 from mememo.util import django_sync, format_command_help
@@ -67,22 +68,38 @@ class MememoAgent(BivalveAgent):
         await self.service_manager.scheduled_update()
         self.schedule(self.maintain_services())
 
-    async def fn_auth(self, conn: Connection, username: str, password: str):
+    async def fn_auth(
+        self, conn: Connection, username_or_token: str, password: Optional[str] = None
+    ):
         """
-        `auth <username> <password>`
+        `auth (<token>) | (<username> <password>)`
 
         Authenticate this session using the given credentials.
 
         Allowed: Everyone.
         """
+
         session = self.sessions[conn.id]
-        session.user = await authenticate(username=username, password=password)
-        if session.user is None:
-            raise RuntimeError("Invalid credentials.")
+
+        if password is None:
+            plaintext_token = username_or_token
+            user = await django_sync(AuthToken.resolve)(plaintext_token)
+            if user is None:
+                raise RuntimeError("Invalid auth token.")
+            session.user = user
+
+        else:
+            username = username_or_token
+            session.user = await authenticate(username=username, password=password)
+            if session.user is None:
+                raise RuntimeError("Invalid credentials.")
+
         return f"Authenticated as `{session.user.username}`."
 
     @auth
-    async def fn_help(self, conn: Connection, user: User, command: Optional[str] = None):
+    async def fn_help(
+        self, conn: Connection, user: User, command: Optional[str] = None
+    ):
         """
         `help [command]`
 
@@ -144,7 +161,7 @@ class MememoAgent(BivalveAgent):
         user = User.objects.filter(username=auth3p.alias).first()
         if user is None:
             user = User.objects.create(username=auth3p.alias)
-            user.set_password(new_random_pw())
+            user.set_password(secrets.token_urlsafe(128))
             user.save()
 
         auth3p.user = user
@@ -230,7 +247,7 @@ class MememoAgent(BivalveAgent):
             auth3p_filter = auth3p_filter.filter(alias=username)
 
         for auth3p in auth3p_filter:
-            results.append(f"{auth3p.identity} ({auth3p.alias}): {auth3p.challenge}\n")
+            results.append(f"{auth3p.identity} ({auth3p.alias}): {auth3p.challenge}")
         sb = io.StringIO()
         print("```", file=sb)
         for result in results:
@@ -318,7 +335,7 @@ class MememoAgent(BivalveAgent):
 
         results = []
         for perm in Permission.objects.all():
-            results.append(f"{perm.codename}\n")
+            results.append(f"{perm.codename}")
         sb = io.StringIO()
         print("```", file=sb)
         for result in results:
@@ -338,13 +355,53 @@ class MememoAgent(BivalveAgent):
 
         results = []
         for user in User.objects.all():
-            results.append(f"{user.username}\n")
+            results.append(user.username)
         sb = io.StringIO()
         print("```", file=sb)
         for result in results:
             print(result, file=sb)
         print("```", file=sb)
         return sb.getvalue()
+
+    @admin
+    def fn_mktoken(self, conn: Connection, user: User, username: str):
+        """
+        `mktoken <username>`
+
+        Makes an auth token for the given user or replaces an existing one.
+        The old token is blown away and can no longer be used.
+
+        Allowed: Superusers only.
+        """
+
+        sb = io.StringIO()
+        user = User.objects.get(username=username)
+        user_token = AuthToken.objects.filter(user=user).first()
+        if user_token is not None:
+            user_token.delete()
+        plaintext_token, new_token = AuthToken.new(user)
+
+        print(f"Generated a new auth token for `{user.username}`.", file=sb)
+        print("```", file=sb)
+        print(plaintext_token, file=sb)
+        print("```", file=sb)
+
+        return sb.getvalue()
+
+    @admin
+    def fn_rmtoken(self, conn: Connection, user: User, username: str):
+        """
+        `rmtoken <username>`
+
+        Removes the auth token for the given user.
+
+        Allowed: Superusers only.
+        """
+
+        user = User.objects.get(username=username)
+        user_token = AuthToken.objects.get(user=user)
+        user_token.delete()
+        return f"Deleted auth token for `{user.username}`."
 
     @admin
     def fn_mkgrant(self, conn: Connection, user: User, grant_code: str):

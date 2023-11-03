@@ -5,21 +5,26 @@
 # Date: Tuesday September 12, 2023
 # --------------------------------------------------------------------
 
+import secrets
+import hashlib
 from datetime import datetime, timedelta
+from typing import Optional
 
 import shortuuid
-from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 
 # --------------------------------------------------------------------
 THIRD_PARTY_AUTH_EXPIRY_DAYS = 120
 SERVICE_GRANT_EXPIRY_DAYS = 365
+AUTH_TOKEN_EXPIRY_DAYS = 90
+AUTH_TOKEN_HASH_ROUNDS = 500
 DEFAULT_TOPIC_RUN_FREQ_MIN = 5
-RANDOM_PW_LEN = 32
 SHORTUUID_LEN = 8
 CHALLENGE_LEN = 128
 USERNAME_LEN = 32
+AUTH_TOKEN_LENGTH = 72
 
 
 # --------------------------------------------------------------------
@@ -33,8 +38,18 @@ def new_challenge() -> str:
 
 
 # --------------------------------------------------------------------
-def new_random_pw() -> str:
-    return shortuuid.random(length=RANDOM_PW_LEN)
+def new_auth_token() -> str:
+    return shortuuid.random(length=AUTH_TOKEN_LENGTH)
+
+
+# --------------------------------------------------------------------
+def hash_auth_token(auth_token: str) -> str:
+    token_bytes = auth_token.encode('utf-8')
+    h = hashlib.new('sha512')
+    for _ in range(AUTH_TOKEN_HASH_ROUNDS):
+        h.update(token_bytes)
+        token_bytes = h.digest()
+    return h.hexdigest()
 
 
 # --------------------------------------------------------------------
@@ -111,9 +126,7 @@ class ServiceGrant(TimestampedModel):
     @classmethod
     def by_user(cls, user: User) -> set[str]:
         results = set()
-        for assignment in ServiceGrantAssignment.objects.filter(
-            user=user
-        ):
+        for assignment in ServiceGrantAssignment.objects.filter(user=user):
             results.add(assignment.grant.to_code())
         return results
 
@@ -129,6 +142,34 @@ class ServiceGrantAssignment(TimestampedModel):
 
     def save(self, *args, **kwargs):
         if not self.pk:
+            self.expiry_dt = timezone.now() + timedelta(days=SERVICE_GRANT_EXPIRY_DAYS)
+        super().save(*args, **kwargs)
+
+
+# --------------------------------------------------------------------
+class AuthToken(TimestampedModel):
+    id = models.CharField(primary_key=True, max_length=256)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    expiry_dt = models.DateTimeField()
+
+    @classmethod
+    def new(self, user: User) -> tuple[str, "AuthToken"]:
+        plaintext_token = new_auth_token()
+        hashed_token = hash_auth_token(plaintext_token)
+        token = AuthToken(id=hashed_token, user=user)
+        token.save()
+        return plaintext_token, token
+
+    @classmethod
+    def resolve(self, plaintext_token: str) -> Optional[User]:
+        hashed_token = hash_auth_token(plaintext_token)
+        token = AuthToken.objects.filter(id=hashed_token).first()
+        if token is None:
+            return None
+        return token.user
+
+    def save(self, *args, **kwargs):
+        if not self.expiry_dt:
             self.expiry_dt = timezone.now() + timedelta(days=SERVICE_GRANT_EXPIRY_DAYS)
         super().save(*args, **kwargs)
 
