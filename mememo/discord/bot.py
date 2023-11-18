@@ -10,12 +10,12 @@ import shlex
 
 from bivalve.agent import BivalveAgent
 from bivalve.logging import LogManager
-
-import discord
 from mememo.agent import MememoAgent
 from mememo.config import Config
 from mememo.discord.response import DiscordResponseDigestor, ResponseContext
 from mememo.service import ServiceManager
+
+import discord
 
 # --------------------------------------------------------------------
 log = LogManager().get(__name__)
@@ -59,9 +59,11 @@ class DiscordClient(discord.Client):
 
     async def handle_message(self, message: discord.Message, sigil: str):
         full_argv = shlex.split(message.content)
-        if full_argv[0] == sigil:
+        if full_argv[0].lower() == sigil:
             full_argv.pop(0)
         fn_name, *argv = full_argv
+
+        fn_name = fn_name.lower()
 
         # Mask the agent `auth` function.
         if fn_name == "auth":
@@ -75,7 +77,7 @@ class DiscordClient(discord.Client):
                 "discord-" + str(message.author.id),
                 message.author.name,
                 *argv,
-                timeout_ms=config.discord.get_client_timeout() * 1000
+                timeout_ms=config.discord.get_client_timeout() * 1000,
             )
 
             if result.code == result.code.ERROR:
