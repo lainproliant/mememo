@@ -301,6 +301,32 @@ class MememoAgent(BivalveAgent):
         assignment.save()
 
     @admin
+    def fn_auth3p_override(self, conn: Connection, user: User, identity: str):
+        """
+        `auth3p_override <identity>`
+
+        Forcefully approves or refreshes a third-party authentication request.
+
+        Allowed: Superusers only.
+        """
+
+        now = timezone.now()
+        auth3p = ThirdPartyAuthentication.objects.filter(identity=identity).first()
+        if not auth3p:
+            raise RuntimeError("No third party auth request exists for this identity.")
+        user = User.objects.filter(username=auth3p.alias).first()
+        if user is None:
+            user = User.objects.create(username=auth3p.alias)
+            user.set_password(secrets.token_urlsafe(128))
+            user.save()
+
+        auth3p.user = user
+        auth3p.challenge = ""
+        auth3p.expiry_dt = now + Config.get().auth3p.get_expiry()
+        auth3p.save()
+        return f"Third party auth override successful for @<{user.username}>.  Their authorization will expire on {auth3p.expiry_dt.isoformat()}.\n"
+
+    @admin
     def fn_lsgrant(self, conn: Connection, user: User, username: Optional[str] = None):
         """
         `lsgrant [username]`
