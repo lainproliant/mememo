@@ -2,7 +2,7 @@
 # --------------------------------------------------------------------
 # build.py
 #
-# Author: Lain Musgrove (lain.musgrove@hearst.com)
+# Author: Lain Musgrove (lain.proliant@gmail.com)
 # Date: Saturday October 7, 2023
 # --------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 # --------------------------------------------------------------------
 # config.py
 #
-# Author: Lain Musgrove (lain.musgrove@hearst.com)
+# Author: Lain Musgrove (lain.proliant@gmail.com)
 # Date: Sunday October 8, 2023
 # --------------------------------------------------------------------
 
