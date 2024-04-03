@@ -59,12 +59,12 @@ class DiscordConfig(YAMLWizard):
 
 # --------------------------------------------------------------------
 @dataclass
-class ThirdPartyServiceDefinition(YAMLWizard):
-    repo: str
+class DynamicServiceDefinition(YAMLWizard):
     run: str
     handles: str
     env: dict[str, str]
     setup: str = ""
+    repo: Optional[str] = None
     cache: Optional[str] = None
     refresh: Optional[str] = None
     schedule: Optional[str] = None
@@ -108,7 +108,7 @@ class Config(YAMLWizard):
     system: SystemConfig = field(default_factory=SystemConfig)
     auth3p: Auth3pConfig = field(default_factory=Auth3pConfig)
     discord: DiscordConfig = field(default_factory=DiscordConfig)
-    services: dict[str, ThirdPartyServiceDefinition] = field(default_factory=dict)
+    services: dict[str, DynamicServiceDefinition] = field(default_factory=dict)
     env: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):

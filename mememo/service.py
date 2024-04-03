@@ -19,10 +19,9 @@ from bivalve.logging import LogManager
 from django.contrib.auth.models import User
 from xeno.shell import Shell
 
-from mememo.config import Config, ThirdPartyServiceDefinition
+from mememo.config import Config, DynamicServiceDefinition
+from mememo.models import ServiceGrant, new_id
 from mememo.util import django_sync
-from mememo.models import ServiceGrant
-from mememo.models import new_id
 
 # --------------------------------------------------------------------
 BASE_PATH = Path("/opt/mememo/services")
@@ -124,8 +123,8 @@ class Service:
 
 
 # --------------------------------------------------------------------
-class ThirdPartyService(Service, TimestampedBasePath):
-    def __init__(self, name: str, definition: ThirdPartyServiceDefinition):
+class DynamicService(Service, TimestampedBasePath):
+    def __init__(self, name: str, definition: DynamicServiceDefinition):
         self.name = name
         self.definition = definition
         self.log = log.getChild(name)
@@ -272,6 +271,8 @@ class ThirdPartyService(Service, TimestampedBasePath):
         )
 
     async def _git_clone(self):
+        if not self.definition.repo:
+            return
         self.log.info(f"Cloning: {self.definition.repo}")
         await self._sh().run(
             "git clone {repo} {dest}",
@@ -283,6 +284,8 @@ class ThirdPartyService(Service, TimestampedBasePath):
         )
 
     async def _git_pull(self):
+        if not self.definition.repo:
+            return
         self.log.info(f"Forcing git pull update: {self.definition.repo}")
         await self._sh().cd(self.base_path()).run(
             "git fetch --all && git reset --hard @{{u}}",
@@ -317,12 +320,12 @@ class ServiceManager(TimestampedBasePath):
     def base_path(self):
         return BASE_PATH
 
-    def third_party_services(self) -> Iterable[ThirdPartyService]:
+    def dynamic_services(self) -> Iterable[DynamicService]:
         for name, definition in Config.get().services.items():
-            yield ThirdPartyService(name, definition)
+            yield DynamicService(name, definition)
 
     def services(self) -> Iterable[Service]:
-        yield from self.third_party_services()
+        yield from self.dynamic_services()
         yield from self._services
 
     async def scheduled_update(self):
@@ -339,7 +342,7 @@ class ServiceManager(TimestampedBasePath):
     async def update(self):
         now = datetime.now()
 
-        for service in self.third_party_services():
+        for service in self.dynamic_services():
             if service.next_update_time(self.last_update_dt) < now:
                 await service.prepare(self.instance_id)
                 await service.invoke(self.instance_id)
