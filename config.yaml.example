@@ -1,0 +1,41 @@
+agent:
+  log_level: INFO
+  host: 0.0.0.0
+  port: 8510
+  timeout: 5m
+auth3p:
+  challenge_expiry: 5d
+  expiry: 90d
+discord:
+  enabled: True
+  token: TODO_DISCORD_AGENT_TOKEN
+  timeout: 120s
+  mememo_user: discord-agent
+  mememo_passwd: TODO_DISCORD_AGENT_DJANGO_USER_PASSWORD
+env:
+  DJANGO_SECRET_KEY: TODO_YOUR_DJANGO_SECRET_KEY
+  DJANGO_DEBUG: 1
+services:
+  youre-welcome:
+    enabled: true
+    run: >
+      echo "You're welcome, @<{MEMEMO_USERNAME}>!"
+    handles: "(ty.*)|(thank.*)"
+    doc: "Thank Mememo for his hard work."
+  bank-balance:
+    enabled: true
+    repo: https://github.com/whoever/some-bank-selenium-script
+    setup: pipenv install
+    run: >
+      pipenv run python bank-balance.py | grep EXAMPLE_ACCOUNT_ID | sed 's/^.*: \(.*\)/Checking: \1/'
+    handles: "balance\\?"
+    cache: 15m
+    doc: Get the current bank account balance.
+    required_grants:
+      - bank-balance:bank_account
+    env:
+      HEADLESS: 1
+      BANK_USERNAME: EXAMPLE_BANKING_USERNAME
+      BANK_PASSWORD: EXAMPLE_BANKING_PASSWORD
+system:
+  service_grant_expiry: 90d
