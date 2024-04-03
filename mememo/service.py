@@ -272,6 +272,7 @@ class DynamicService(Service, TimestampedBasePath):
 
     async def _git_clone(self):
         if not self.definition.repo:
+            self.base_path().mkdir(parents=True, exist_ok=True)
             return
         self.log.info(f"Cloning: {self.definition.repo}")
         await self._sh().run(
@@ -285,6 +286,7 @@ class DynamicService(Service, TimestampedBasePath):
 
     async def _git_pull(self):
         if not self.definition.repo:
+            self.base_path().mkdir(parents=True, exist_ok=True)
             return
         self.log.info(f"Forcing git pull update: {self.definition.repo}")
         await self._sh().cd(self.base_path()).run(

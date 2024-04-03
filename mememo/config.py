@@ -62,7 +62,7 @@ class DiscordConfig(YAMLWizard):
 class DynamicServiceDefinition(YAMLWizard):
     run: str
     handles: str
-    env: dict[str, str]
+    env: Optional[dict[str, str]] = field(default_factory=dict)
     setup: str = ""
     repo: Optional[str] = None
     cache: Optional[str] = None
