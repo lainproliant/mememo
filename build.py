@@ -7,13 +7,12 @@
 # --------------------------------------------------------------------
 
 import getpass
+import subprocess
 
-from xeno.build import provide, task, build
+from xeno.build import build, provide, task
 from xeno.recipe import Recipe
 from xeno.recipes.shell import sh
 from xeno.shell import check
-
-import subprocess
 
 
 # --------------------------------------------------------------------
@@ -121,7 +120,7 @@ def debug(database, docker_build):
 @task(default=True, dep="docker_build,database")
 def up(docker_build, database):
     return sh(
-        "docker-compose up --remove-orphans -d",
+        "docker-compose up --remove-orphans -d && docker update --restart=always mememo-admin && docker update --restart=always mememo-agent",
         env={"MEMEMO_IMAGE_NAME": docker_build.result()},
     )
 
