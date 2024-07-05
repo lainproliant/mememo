@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 import croniter
-from bivalve.logging import LogManager
 from django.contrib.auth.models import User
+from waterlog import LogManager
 from xeno.shell import Shell
 
 from mememo.config import Config, DynamicServiceDefinition
@@ -112,6 +112,12 @@ class Service:
         self, instance_id: str, ctx: Optional[ServiceCallContext] = None
     ) -> str:
         raise NotImplementedError()
+
+    def assert_chain(self, ctx: Optional[ServiceCallContext], *grants: str) -> bool:
+        for grant in grants:
+            if self.assert_grants(ctx, grant):
+                return True
+        return False
 
     def assert_grants(self, ctx: Optional[ServiceCallContext], *grants: str) -> bool:
         if ctx is None:

@@ -9,13 +9,14 @@ import asyncio
 import signal
 
 from bivalve.agent import BivalveAgent
-from bivalve.logging import LogManager
 from django.core.management.base import BaseCommand
 from ledger.service import LedgerService
 from mememo.agent import MememoAgent
 from mememo.config import Config
 from mememo.discord.bot import DiscordAgent
 from mememo.service import ServiceManager
+from task.service import TaskService
+from waterlog import LogManager
 
 # --------------------------------------------------------------------
 config = Config.get()
@@ -43,6 +44,7 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         service_manager = ServiceManager()
         service_manager.install(LedgerService())
+        service_manager.install(TaskService())
 
         main_agent = MememoAgent(service_manager, config.agent.host, config.agent.port)
         agents = [main_agent]

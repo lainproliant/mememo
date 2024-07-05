@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+
 import environ
 
 env = environ.Env(DJANGO_DEBUG=(bool, False))
@@ -42,7 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "mememo",
-    "ledger"
+    "ledger",
+    "task",
 ]
 
 MIDDLEWARE = [

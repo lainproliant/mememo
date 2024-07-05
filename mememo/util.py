@@ -13,7 +13,7 @@ from typing import Optional
 
 import isodate
 from asgiref.sync import sync_to_async
-from bivalve.util import Commands as CommandMap
+from commandmap import CommandMap
 
 
 # --------------------------------------------------------------------
@@ -64,7 +64,7 @@ def django_sync(f):
 # --------------------------------------------------------------------
 def format_command_help(cmd_map: CommandMap, command: Optional[str] = None) -> str:
     sb = io.StringIO()
-    commands = cmd_map.list()
+    commands = cmd_map.keys()
 
     if command is None:
         usages = []

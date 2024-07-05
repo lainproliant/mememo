@@ -12,7 +12,7 @@ from typing import Any, Callable, Optional, Union
 
 from asgiref.sync import sync_to_async
 from bivalve.aio import Connection
-from bivalve.logging import LogManager
+from waterlog import LogManager
 from django.utils import timezone
 from django.contrib.auth import (
     authenticate as dj_authenticate,

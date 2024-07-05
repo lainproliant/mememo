@@ -5,21 +5,24 @@
 # Date: Thursday November 2, 2023
 # --------------------------------------------------------------------
 
-from decimal import Decimal
-from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
+from typing import Iterable, Optional
 
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from mememo.models import TimestampedModel, id_field
-from typing import Optional, Iterable
 
 
 # --------------------------------------------------------------------
 class Account(TimestampedModel):
     id = id_field()
     name = models.TextField(unique=True)
+
+    def __str__(self) -> str:
+        return self.name
 
     def balance(self) -> Decimal:
         from_total = Transaction.objects.filter(from_account=self).aggregate(
@@ -74,6 +77,9 @@ class AccountAccess(TimestampedModel):
     is_owner = models.BooleanField(default=False)
     is_default = models.BooleanField(default=False)
 
+    def __str__(self) -> str:
+        return f"{self.user.username} @ {self.account.name}"
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -93,6 +99,9 @@ class Transaction(TimestampedModel):
         Account, on_delete=models.SET_NULL, null=True, related_name="payin"
     )
     note = models.TextField(null=True)
+
+    def __str__(self) -> str:
+        return f"{self.created_at.isoformat()} {self.amount} {self.from_account.name} -> {self.to_account.name} by {slef.agent.username}"
 
     @classmethod
     def filter(

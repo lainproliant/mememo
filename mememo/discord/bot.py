@@ -9,7 +9,7 @@ import asyncio
 import shlex
 
 from bivalve.agent import BivalveAgent
-from bivalve.logging import LogManager
+from waterlog import LogManager
 from mememo.agent import MememoAgent
 from mememo.config import Config
 from mememo.discord.response import DiscordResponseDigestor, ResponseContext

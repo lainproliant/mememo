@@ -12,7 +12,7 @@ from typing import Optional
 
 from bivalve.agent import BivalveAgent
 from bivalve.aio import Connection
-from bivalve.logging import LogManager
+from waterlog import LogManager
 from django.contrib.auth.models import Permission, User
 from django.utils import timezone
 

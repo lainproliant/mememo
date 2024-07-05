@@ -88,11 +88,15 @@ class DynamicServiceDefinition(YAMLWizard):
 @dataclass
 class SystemConfig(YAMLWizard):
     service_grant_expiry: str = "90d"
+    settings_expiry: str = "15m"
     config_refresh: str = "5m"
     service_update: str = "1m"
 
     def get_service_grant_expiry(self) -> timedelta:
         return parse_td(self.service_grant_expiry)
+
+    def get_settings_expiry(self) -> timedelta:
+        return parse_td(self.settings_expiry)
 
     def get_config_refresh_delay(self) -> timedelta:
         return parse_td(self.config_refresh)
