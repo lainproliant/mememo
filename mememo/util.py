@@ -13,7 +13,7 @@ from typing import Optional
 
 import isodate
 from asgiref.sync import sync_to_async
-from bivalve.util import Commands as CommandMap
+from commandmap import CommandMap
 
 
 # --------------------------------------------------------------------
@@ -64,25 +64,26 @@ def django_sync(f):
 # --------------------------------------------------------------------
 def format_command_help(cmd_map: CommandMap, command: Optional[str] = None) -> str:
     sb = io.StringIO()
-    commands = cmd_map.list()
+    commands = cmd_map.keys()
 
     if command is None:
         usages = []
         for fn_name in commands:
             docs: str = cmd_map.get(fn_name).__doc__.strip()
-            usages.append(docs.splitlines(keepends=False)[0][1:-1])
+            usage = docs.splitlines(keepends=False)[0][1:-1]
+            usages.append(f"- `{usage}`")
 
         usages.sort()
         content = "\n".join(usages)
-        print("```", file=sb)
         print(content, file=sb)
-        print("```", file=sb)
 
     else:
         content_lines = [
             line.strip()
             for line in cmd_map.get(command).__doc__.strip().splitlines(keepends=False)
         ]
+        if len(content_lines) > 0:
+            content_lines[0] = f"`{content_lines[0]}`"
         for line in content_lines:
             print(line, file=sb)
 

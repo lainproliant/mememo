@@ -150,7 +150,7 @@ def watch(up, argv):
 # --------------------------------------------------------------------
 @task(dep="up")
 def talk(up):
-    return sh("pipenv run bivalve -H localhost -p 8510", interact=True, ctrlc=True)
+    return sh("pipenv run python -m bivalve.cli -H localhost -p 8510", interact=True, ctrlc=True)
 
 
 # --------------------------------------------------------------------

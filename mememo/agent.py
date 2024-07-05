@@ -6,15 +6,15 @@
 # --------------------------------------------------------------------
 
 import io
-import shlex
 import secrets
+import shlex
 from typing import Optional
 
 from bivalve.agent import BivalveAgent
 from bivalve.aio import Connection
-from bivalve.logging import LogManager
 from django.contrib.auth.models import Permission, User
 from django.utils import timezone
+from waterlog import LogManager
 
 from mememo.auth import (
     Session,
@@ -31,7 +31,7 @@ from mememo.models import (
     ServiceGrant,
     ServiceGrantAssignment,
     ThirdPartyAuthentication,
-    new_auth_token
+    new_auth_token,
 )
 from mememo.service import ServiceCallContext, ServiceManager
 from mememo.util import django_sync, format_command_help
@@ -108,7 +108,21 @@ class MememoAgent(BivalveAgent):
         all commands are printed with their usage lines.
         """
 
-        return format_command_help(self._functions, command)
+        if command is None:
+            sb = io.StringIO()
+            builtins_help = format_command_help(self._functions)
+            p = lambda x: print(x, file=sb)
+
+            p("## Builtin Commands")
+            p("Type `help [command]` for more info on each command.")
+            p(builtins_help)
+            p("## Services")
+            p(self.service_manager.help_text())
+
+            return sb.getvalue()
+
+        else:
+            return format_command_help(self._functions, command)
 
     @django_sync
     def fn_auth3p(
@@ -199,9 +213,7 @@ class MememoAgent(BivalveAgent):
                 else:
                     passwd = new_auth_token()
                     user.set_password(passwd)
-                    return (
-                        f"Created new user `{user.username}` with password `{passwd}`.\n"
-                    )
+                    return f"Created new user `{user.username}` with password `{passwd}`.\n"
 
             case "rm":
                 user = User.objects.get(username=username)
@@ -280,7 +292,9 @@ class MememoAgent(BivalveAgent):
                 grant = ServiceGrant.by_code(grant_code)
                 assignment = ServiceGrantAssignment(user=user, grant=grant)
                 assignment.save()
-                return f"Service grant `{grant.to_code()}` added to `{user.username}`.\n"
+                return (
+                    f"Service grant `{grant.to_code()}` added to `{user.username}`.\n"
+                )
 
             case "rm":
                 grant = ServiceGrant.by_code(grant_code)

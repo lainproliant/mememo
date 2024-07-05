@@ -8,7 +8,7 @@ import functools
 import io
 import re
 from typing import Callable, Generic, TypeVar
-from bivalve.logging import LogManager
+from waterlog import LogManager
 
 # --------------------------------------------------------------------
 T = TypeVar("T")

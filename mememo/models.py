@@ -5,8 +5,9 @@
 # Date: Tuesday September 12, 2023
 # --------------------------------------------------------------------
 
-import secrets
 import hashlib
+import secrets
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -15,10 +16,9 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 
+from mememo.config import Config
+
 # --------------------------------------------------------------------
-THIRD_PARTY_AUTH_EXPIRY_DAYS = 120
-SERVICE_GRANT_EXPIRY_DAYS = 365
-AUTH_TOKEN_EXPIRY_DAYS = 90
 AUTH_TOKEN_HASH_ROUNDS = 500
 DEFAULT_TOPIC_RUN_FREQ_MIN = 5
 SHORTUUID_LEN = 8
@@ -33,6 +33,15 @@ def new_id() -> str:
 
 
 # --------------------------------------------------------------------
+def new_quadcode() -> str:
+    prev_alpha = shortuuid.get_alphabet()
+    shortuuid.set_alphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    quadcode = shortuuid.random(4)
+    shortuuid.set_alphabet(prev_alpha)
+    return quadcode
+
+
+# --------------------------------------------------------------------
 def new_challenge() -> str:
     return shortuuid.random(length=CHALLENGE_LEN)
 
@@ -44,8 +53,8 @@ def new_auth_token() -> str:
 
 # --------------------------------------------------------------------
 def hash_auth_token(auth_token: str) -> str:
-    token_bytes = auth_token.encode('utf-8')
-    h = hashlib.new('sha512')
+    token_bytes = auth_token.encode("utf-8")
+    h = hashlib.new("sha512")
     for _ in range(AUTH_TOKEN_HASH_ROUNDS):
         h.update(token_bytes)
         token_bytes = h.digest()
@@ -59,6 +68,13 @@ def id_field():
         default=new_id,
         editable=False,
         max_length=SHORTUUID_LEN,
+    )
+
+
+# --------------------------------------------------------------------
+def quadcode_field():
+    return models.CharField(
+        unique=True, editable=False, max_length=4, default=new_quadcode
     )
 
 
@@ -102,6 +118,9 @@ class ServiceGrant(TimestampedModel):
     service_name = models.CharField(max_length=128)
     grant_name = models.CharField(max_length=128)
 
+    def __str__(self) -> str:
+        return f"{self.service_name}:{self.grant_name}"
+
     class Meta:
         unique_together = ("service_name", "grant_name")
 
@@ -140,9 +159,14 @@ class ServiceGrantAssignment(TimestampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     expiry_dt = models.DateTimeField()
 
+    def __str__(self) -> str:
+        return f"{self.user.username} -> {self.grant}"
+
     def save(self, *args, **kwargs):
         if not self.pk:
-            self.expiry_dt = timezone.now() + timedelta(days=SERVICE_GRANT_EXPIRY_DAYS)
+            self.expiry_dt = (
+                timezone.now() + Config.get().system.get_service_grant_expiry()
+            )
         super().save(*args, **kwargs)
 
 
@@ -151,6 +175,9 @@ class AuthToken(TimestampedModel):
     id = models.CharField(primary_key=True, max_length=256)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     expiry_dt = models.DateTimeField()
+
+    def __str__(self) -> str:
+        return f"{self.user.username} until {self.expiry_dt.isoformat()}"
 
     @classmethod
     def new(self, user: User) -> tuple[str, "AuthToken"]:
@@ -170,7 +197,7 @@ class AuthToken(TimestampedModel):
 
     def save(self, *args, **kwargs):
         if not self.expiry_dt:
-            self.expiry_dt = timezone.now() + timedelta(days=SERVICE_GRANT_EXPIRY_DAYS)
+            self.expiry_dt = timezone.now() + Config.get().auth3p.get_expiry()
         super().save(*args, **kwargs)
 
 
@@ -184,6 +211,9 @@ class Topic(TimestampedModel):
     next_run_dt = models.DateTimeField(default=datetime.min)
     run_freq_minutes = models.IntegerField(default=DEFAULT_TOPIC_RUN_FREQ_MIN)
 
+    def __str__(self) -> str:
+        return f"{self.service_name} {self.id}"
+
 
 # --------------------------------------------------------------------
 class ThirdPartyAuthentication(TimestampedModel):
@@ -196,11 +226,77 @@ class ThirdPartyAuthentication(TimestampedModel):
         User, default=None, on_delete=models.CASCADE, unique=False, null=True
     )
 
+    def __str__(self) -> str:
+        return f"{self.identity} ({self.alias}) until {self.expiry_dt.isoformat()}"
+
 
 # --------------------------------------------------------------------
 class Subscription(TimestampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
 
+    def __str__(self) -> str:
+        return f"{self.user.username} -> {self.topic}"
+
     class Meta:
         unique_together = ("user", "topic")
+
+
+# --------------------------------------------------------------------
+@dataclass
+class CachedSetting:
+    key: str
+    value: str
+    expiry_dt: datetime = field(default_factory=datetime.now)
+
+
+# --------------------------------------------------------------------
+class SettingsCache:
+    def __init__(self):
+        self.cache: dict[str, CachedSetting] = {}
+
+    @classmethod
+    def get_cache(cls) -> "SettingsCache":
+        if cls.INSTANCE is None:
+            cls.INSTANCE = SettingsCache()
+        return cls.INSTANCE
+
+    def get(self, key: str) -> str | None:
+        if key in self.cache:
+            setting = self.cache[key]
+            now = datetime.now()
+            if now > setting.expiry_dt:
+                del self.cache[key]
+            else:
+                return setting.value
+        return None
+
+    def put(self, key: str, value: str) -> CachedSetting:
+        setting = CachedSetting(
+            key, value, datetime.now() + Config.get().system.get_settings_expiry()
+        )
+        self.cache[key] = setting
+        return setting
+
+
+# --------------------------------------------------------------------
+class Setting(TimestampedModel):
+    key = models.TextField(primary_key=True)
+    value = models.TextField()
+
+    @classmethod
+    def get(self, key: str, default: str | None = None, type=str) -> str | None:
+        cache = SettingsCache.get_cache()
+        setting = cache.get(key, default, type)
+        if setting is None:
+            setting = Settings.objects.filter(key=key).first()
+            if setting is None:
+                if default is None:
+                    raise ValueError(
+                        f"Missing Mememo setting with no default value: {key}"
+                    )
+                setting = cache.put(key, default)
+            else:
+                setting = cache.put(setting.key, setting.value)
+
+        return type(setting.value)

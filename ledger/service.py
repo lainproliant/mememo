@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Optional
 
 import tabulate
-from bivalve.util import Commands as CommandMap
+from commandmap import CommandMap
 from django.contrib.auth.models import User
 from mememo.service import Service, ServiceCallContext
 from mememo.util import django_sync, format_command_help, rt_assert
@@ -21,7 +21,7 @@ from price_parser import Price
 from ledger.models import Account, AccountAccess, Transaction
 
 # --------------------------------------------------------------------
-TABLE_WIDTH = 120
+TABLE_WIDTH = 70
 RX_MONEY = r"\$\d+(,?\d{3})*(\.\d{2})?"
 DATE_FORMAT = "%Y-%m-%d %H:%M"
 SIGILS = ["!cash", "!$"]
@@ -103,6 +103,9 @@ class LedgerService(Service):
         super().__init__()
         self.commands = CommandMap(self)
 
+    def _help_text(self) -> Optional[str]:
+        return "`cash [cmd]` Envelope accounting tools."
+
     def handles_function(self, fn_name: str) -> bool:
         return fn_name == "cash" or fn_name in SIGILS
 
@@ -120,7 +123,7 @@ class LedgerService(Service):
         cmd = "summary"
         argv = [*ctx.args]
 
-        if argv and self.commands.has(argv[0]):
+        if argv[0] in self.commands.keys():
             cmd = argv.pop(0)
 
         rt_assert(
@@ -256,7 +259,9 @@ class LedgerService(Service):
         account.save()
         account_access = AccountAccess(user=owner_user, account=account, is_owner=True)
         account_access.save()
-        return f"Created account `{account.name}` for `{account_access.user.username}`.\n"
+        return (
+            f"Created account `{account.name}` for `{account_access.user.username}`.\n"
+        )
 
     def cmd_rmaccount(self, ctx: ServiceCallContext, account_name: str) -> str:
         """
@@ -347,7 +352,9 @@ class LedgerService(Service):
         user = User.objects.get(username=username)
         access = AccountAccess(user=user, account=account)
         access.save()
-        return f"Access granted for user `{user.username}` to account `{account.name}`\n"
+        return (
+            f"Access granted for user `{user.username}` to account `{account.name}`\n"
+        )
 
     def cmd_revokeaccess(
         self, ctx: ServiceCallContext, account_name: str, username: str
@@ -367,7 +374,9 @@ class LedgerService(Service):
         user = User.objects.get(username=username)
         access = AccountAccess.objects.get(user=user, account=account)
         access.delete()
-        return f"Access revoked for user `{user.username}` to account `{account.name}`\n"
+        return (
+            f"Access revoked for user `{user.username}` to account `{account.name}`\n"
+        )
 
     def cmd_spend(self, ctx: ServiceCallContext, *args) -> str:
         """
@@ -412,7 +421,7 @@ class LedgerService(Service):
             from_account=account,
             to_account=None,
             amount=amount,
-            note=' '.join(argv),
+            note=" ".join(argv),
         )
         txn.save()
         return txn_result(txn, account)
@@ -497,7 +506,7 @@ class LedgerService(Service):
         if len(args) == 0:
             note = None
         else:
-            note = ' '.join(args)
+            note = " ".join(args)
 
         txn = Transaction(
             agent=ctx.user,

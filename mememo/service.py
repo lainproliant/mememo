@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 import croniter
-from bivalve.logging import LogManager
 from django.contrib.auth.models import User
+from waterlog import LogManager
 from xeno.shell import Shell
 
 from mememo.config import Config, DynamicServiceDefinition
@@ -96,7 +96,7 @@ class TimestampedBasePath:
 # --------------------------------------------------------------------
 class Service:
     def __init__(self, name: Optional[str] = None):
-        self.name = name or (self.__class__.__module__ + self.__class__.__qualname__)
+        self.name = name or (self.__class__.__qualname__)
         self.log = log.getChild(self.name)
 
     def handles_function(self, fn_name: str) -> bool:
@@ -105,6 +105,12 @@ class Service:
     def handles_message(self, message: str) -> bool:
         return False
 
+    def help_text(self) -> str:
+        return f"- {self._help_text()}"
+
+    def _help_text(self) -> str:
+        return f"{self.name} (no help available)"
+
     async def prepare(self, instance_id: str, ctx: Optional[ServiceCallContext] = None):
         pass
 
@@ -112,6 +118,12 @@ class Service:
         self, instance_id: str, ctx: Optional[ServiceCallContext] = None
     ) -> str:
         raise NotImplementedError()
+
+    def assert_chain(self, ctx: Optional[ServiceCallContext], *grants: str) -> bool:
+        for grant in grants:
+            if self.assert_grants(ctx, grant):
+                return True
+        return False
 
     def assert_grants(self, ctx: Optional[ServiceCallContext], *grants: str) -> bool:
         if ctx is None:
@@ -146,6 +158,9 @@ class DynamicService(Service, TimestampedBasePath):
 
     def handles_function(self, fn_name: str) -> bool:
         return re.compile(self.definition.handles).match(fn_name) is not None
+
+    def _help_text(self) -> Optional[str]:
+        return f"`{self.definition.usage or self.definition.handles}` {self.definition.doc}"
 
     @property
     def instance_id(self) -> str:
@@ -351,6 +366,16 @@ class ServiceManager(TimestampedBasePath):
 
         self.last_update_dt = datetime.now()
         self.next_update_dt = now + Config().get().system.get_service_update_delay()
+
+    def help_text(self) -> str:
+        sb = StringIO()
+        p = lambda x: print(x, file=sb)
+        help_lines = sorted([s.help_text() for s in self.services()])
+
+        for line in help_lines:
+            p(line)
+
+        return sb.getvalue()
 
     def has_message_handler(self, message: str) -> bool:
         try:

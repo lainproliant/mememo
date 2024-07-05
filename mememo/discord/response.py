@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 
 from mememo.response import ResponseDigestor
-from bivalve.logging import LogManager
+from waterlog import LogManager
 
 import discord
 
