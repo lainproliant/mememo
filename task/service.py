@@ -142,7 +142,7 @@ class TaskService(Service):
         tasks = proj.tasks(config.inc_status, config.exc_status)
 
         for task in tasks:
-            print(str(task), file=sb)
+            print("- " + str(task), file=sb)
 
         return sb.getvalue()
 
