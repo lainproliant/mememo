@@ -447,3 +447,4 @@ class TaskService(Service):
             user = User.objects.get(username=config.user)
 
         proj.set_as_default_for_user(user)
+        return f"Set `{proj.code}` as the default project for `{user.username}`."
