@@ -148,7 +148,7 @@ class TaskService(Service):
 
     def cmd_ls(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
-        `task list [-s status,status,...] [-S notstatus,notstatus,...] [-p <proj>]`
+        `task ls [-s status,status,...] [-S notstatus,notstatus,...] [-p <proj>]`
 
         Alias to `task list`.
         List tasks within the given project or the user's default project.
@@ -238,7 +238,7 @@ class TaskService(Service):
 
     def cmd_mv(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
-        `task mv <code> <-p proj>`
+        `task mv <-p proj> <code>`
 
         Move one or more tasks to a new project.  User must be an owner
         of both projects the tasks are in.
@@ -252,9 +252,9 @@ class TaskService(Service):
         if config.proj is None:
             raise ValueError("A destination project code is required.")
 
-        new_proj = Project.objects.get(config.proj)
+        new_proj = Project.objects.get(code=config.proj)
         new_proj_access = new_proj.user_access(ctx.user)
-        if access is None or not new_proj_access.is_owner:
+        if new_proj_access is None or not new_proj_access.is_owner:
             raise ValueError(
                 f"User is not an owner of destination project `{new_proj.code}`."
             )
