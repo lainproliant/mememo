@@ -67,14 +67,16 @@ def format_command_help(cmd_map: CommandMap, command: Optional[str] = None) -> s
     commands = cmd_map.keys()
 
     if command is None:
-        usages = []
-        for fn_name in commands:
+        help_lines = []
+        for fn_name in sorted(commands):
             docs: str = cmd_map.get(fn_name).__doc__.strip()
-            usage = docs.splitlines(keepends=False)[0][1:-1]
-            usages.append(f"- `{usage}`")
+            lines = docs.splitlines(keepends=False)
+            usage = lines[0][1:-1]
+            oneline_help = lines[1].strip()
+            help_lines.append(f"- `{usage}`")
+            help_lines.append(f"  {oneline_help}")
 
-        usages.sort()
-        content = "\n".join(usages)
+        content = "\n".join(help_lines)
         print(content, file=sb)
 
     else:

@@ -109,7 +109,7 @@ class Service:
         return f"- {self._help_text()}"
 
     def _help_text(self) -> str:
-        return f"{self.name} (no help available)"
+        return f"{self.name}\n  (no help available)"
 
     async def prepare(self, instance_id: str, ctx: Optional[ServiceCallContext] = None):
         pass
@@ -159,8 +159,8 @@ class DynamicService(Service, TimestampedBasePath):
     def handles_function(self, fn_name: str) -> bool:
         return re.compile(self.definition.handles).match(fn_name) is not None
 
-    def _help_text(self) -> Optional[str]:
-        return f"`{self.definition.usage or self.definition.handles}` {self.definition.doc}"
+    def _help_text(self) -> str:
+        return f"`{self.definition.usage or self.definition.handles}`\n  {self.definition.doc}"
 
     @property
     def instance_id(self) -> str:

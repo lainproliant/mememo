@@ -74,7 +74,6 @@ class MememoAgent(BivalveAgent):
     ):
         """
         `auth (<token>) | (<username> <password>)`
-
         Authenticate this session using the given credentials.
 
         Allowed: Everyone.
@@ -103,16 +102,24 @@ class MememoAgent(BivalveAgent):
     ):
         """
         `help [command]`
+        Get help about the available agent functions.
 
-        Get help about the available agent functions.  If `command` is not specified,
-        all commands are printed with their usage lines.
+        If `command` is not specified, all commands are printed with their usage lines.
         """
+
+        config = Config.get()
 
         if command is None:
             sb = io.StringIO()
             builtins_help = format_command_help(self._functions)
             p = lambda x: print(x, file=sb)
 
+            p("## Intro")
+            p("Hi, I'm Mememo!  I'm a helpful chat robot.")
+            p("Take a look at my available commands below.")
+            p("")
+            p(f"To talk to me in any channel, use the `{config.discord.sigil}` prefix.")
+            p("You can also open a PM and talk to me directly without the prefix!")
             p("## Builtin Commands")
             p("Type `help [command]` for more info on each command.")
             p(builtins_help)
@@ -134,7 +141,6 @@ class MememoAgent(BivalveAgent):
     ):
         """
         `auth3p <identity> <alias> [challenge]`
-
         Authenticate a third-party user.
 
         If `challenge` is not provided, a secret challenge code is generated
@@ -196,7 +202,6 @@ class MememoAgent(BivalveAgent):
     ):
         """
         `user <add|rm> <username> [password]`
-
         Add or remove Mememo user accounts.
 
         Allowed: Users with `mememo.gatekeeper` sys permissions.
@@ -231,6 +236,7 @@ class MememoAgent(BivalveAgent):
     def fn_hello(self, conn: Connection, user: User, *argv):
         """
         `hello`
+        Hello!
 
         A simple hello response to determine if the user is properly
         authenticated.
@@ -243,7 +249,6 @@ class MememoAgent(BivalveAgent):
     def fn_lsauth3p(self, conn: Connection, user: User, username: Optional[str] = None):
         """
         `lsauth3p [username]`
-
         List pending third-party authentication requests.
 
         If `username` is provided, only third-party authentication requests
@@ -279,7 +284,6 @@ class MememoAgent(BivalveAgent):
     ):
         """
         `grant <username> <add|rm|purge> <service_name>:<grant_name>`
-
         Add, remove, or purge user service grants.
 
         Allowed: Users with `mememo.gatekeeper` sys permissions.
@@ -289,6 +293,7 @@ class MememoAgent(BivalveAgent):
 
         match mode:
             case "add":
+                assert grant_code is not None
                 grant = ServiceGrant.by_code(grant_code)
                 assignment = ServiceGrantAssignment(user=user, grant=grant)
                 assignment.save()
@@ -297,6 +302,7 @@ class MememoAgent(BivalveAgent):
                 )
 
             case "rm":
+                assert grant_code is not None
                 grant = ServiceGrant.by_code(grant_code)
                 assignment = ServiceGrantAssignment.objects.get(user=user, grant=grant)
                 assignment.delete()
@@ -318,7 +324,6 @@ class MememoAgent(BivalveAgent):
     def fn_auth3p_override(self, conn: Connection, user: User, identity: str):
         """
         `auth3p_override <identity>`
-
         Forcefully approves or refreshes a third-party authentication request.
 
         Allowed: Superusers only.
@@ -344,7 +349,6 @@ class MememoAgent(BivalveAgent):
     def fn_lsgrant(self, conn: Connection, user: User, username: Optional[str] = None):
         """
         `lsgrant [username]`
-
         List all grants, or all grants assigned to a user.
 
         Allowed: Superusers only.
@@ -368,7 +372,6 @@ class MememoAgent(BivalveAgent):
     def fn_lspermit(self, conn: Connection, user: User):
         """
         `lspermit`
-
         List all sys permissions.
 
         Allowed: Superusers only.
@@ -388,7 +391,6 @@ class MememoAgent(BivalveAgent):
     def fn_lsuser(self, conn: Connection, user: User):
         """
         `lsuser`
-
         List all Mememo user accounts.
 
         Allowed: Superusers only.
@@ -408,9 +410,10 @@ class MememoAgent(BivalveAgent):
     def fn_mktoken(self, conn: Connection, user: User, username: str):
         """
         `mktoken <username>`
+        Makes an auth token for the given user.
 
-        Makes an auth token for the given user or replaces an existing one.
-        The old token is blown away and can no longer be used.
+        Replaces an existing one if present.  The old token is blown away
+        and can no longer be used.
 
         Allowed: Superusers only.
         """
@@ -433,7 +436,6 @@ class MememoAgent(BivalveAgent):
     def fn_rmtoken(self, conn: Connection, user: User, username: str):
         """
         `rmtoken <username>`
-
         Removes the auth token for the given user.
 
         Allowed: Superusers only.
@@ -448,7 +450,6 @@ class MememoAgent(BivalveAgent):
     def fn_mkgrant(self, conn: Connection, user: User, grant_code: str):
         """
         `mkgrant <service_name>:<grant_name>`
-
         Creates a new service grant with the given name.
 
         Allowed: Superusers only.
@@ -465,7 +466,6 @@ class MememoAgent(BivalveAgent):
     ):
         """
         `passwd <username> <passwd> <passwd>`
-
         Set the user's password to the given raw password.
 
         Allowed: Superusers only.
@@ -485,8 +485,7 @@ class MememoAgent(BivalveAgent):
     ):
         """
         `permit <username> <add|rm> <perm>`
-
-        Add or remove the given permission from the given user account.
+        Add or remove a permission from a user account.
 
         Allowed: Superusers only.
         """

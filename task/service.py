@@ -8,7 +8,7 @@
 import argparse
 import io
 from dataclasses import dataclass
-from typing import Optional
+from typing import Iterable, Optional
 
 import tabulate
 from commandmap import CommandMap
@@ -70,7 +70,7 @@ class Config:
             result.extend(status.split(","))
         return result
 
-    def parse_args(self, argv: str) -> "Config":
+    def parse_args(self, argv: Iterable[str]) -> "Config":
         self._argparser().parse_args(argv, namespace=self)
         if self.args is None:
             self.args = []
@@ -84,13 +84,16 @@ class TaskService(Service):
         self.commands = CommandMap(self)
 
     def _help_text(self) -> str:
-        return f"`task [cmd]` Task management system."
+        return f"`task [cmd]`\n  Task management system.  Type `task help` for more info."
 
     def handles_function(self, fn_name: str) -> bool:
         return fn_name == "task"
 
-    async def invoke(self, instance_id: str, ctx: Optional[ServiceCallContext]) -> str:
+    async def invoke(
+        self, instance_id: str, ctx: Optional[ServiceCallContext] = None
+    ) -> str:
         rt_assert(ctx is not None, "Not authorized.")
+        assert ctx is not None
         cmd = "set"
         argv = [*ctx.args]
 
@@ -133,7 +136,6 @@ class TaskService(Service):
     def cmd_list(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task list [-s status,status,...] [-S notstatus,notstatus,...] [-p <proj>]`
-
         List tasks within the given project or the user's default project.
         """
         sb = io.StringIO()
@@ -149,8 +151,8 @@ class TaskService(Service):
     def cmd_ls(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task ls [-s status,status,...] [-S notstatus,notstatus,...] [-p <proj>]`
-
         Alias to `task list`.
+
         List tasks within the given project or the user's default project.
         """
 
@@ -159,12 +161,12 @@ class TaskService(Service):
     def cmd_add(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task add [-p <proj>] name...`
-
-        Add a new task with the given name to the given project or user's
-        default project.
+        Add a new task with the given name to a project or your default project.
         """
         config = Config().parse_args(argv)
         proj = self._get_user_project(ctx, config.proj)
+
+        assert config.args is not None
 
         name = " ".join(config.args)
 
@@ -183,11 +185,12 @@ class TaskService(Service):
     def cmd_rm(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task rm <code>...`
-
         Delete one or more tasks.
         """
 
         config = Config().parse_args(argv)
+
+        assert config.args is not None
 
         if len(config.args) < 1:
             raise ValueError("A task code is required.")
@@ -210,7 +213,6 @@ class TaskService(Service):
     def cmd_set(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task set <code> <status>`
-
         Set the status of the given task by code to a new status.
         """
         config = Config().parse_args(argv)
@@ -239,12 +241,13 @@ class TaskService(Service):
     def cmd_mv(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task mv <-p proj> <code>`
-
-        Move one or more tasks to a new project.  User must be an owner
-        of both projects the tasks are in.
+        Move one or more tasks to a new project.
+        User must be an owner of both the source and destination project.
         """
 
         config = Config().parse_args(argv)
+
+        assert config.args is not None
 
         if len(config.args) < 1:
             raise ValueError("One or more task codes are required.")
@@ -277,11 +280,13 @@ class TaskService(Service):
     def cmd_desc(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task desc <code> [desc...]`
-
-        Read all lines or add a line to the description of a task.
+        Read all lines of or add a line to the description of a task.
         """
 
         config = Config().parse_args(argv)
+
+        assert config.args is not None
+
         if len(config.args) < 1:
             raise ValueError("A task code is required.")
 
@@ -304,9 +309,10 @@ class TaskService(Service):
     def cmd_set_access(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task set_access <-p proj> <-u username> [--owner/-O] [--participant/-P]`
+        Grant a user access to the given project.
 
-        Grant one or more users access to a project.  This action can only
-        be taken by a project owner and not for themselves.
+        This action can only be taken by a project owner and not for
+        themselves.
         """
 
         config = Config().parse_args(argv)
@@ -350,9 +356,10 @@ class TaskService(Service):
     def cmd_revoke_access(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task revoke_access <-p proj> <-u username>`
+        Revoke a user's access to the given project.
 
-        Revoke a user's access to the given project.  This action can only
-        be taken by a project owner and not for themselves.
+        This action can only be taken by a project owner and not for
+        themselves.
         """
         config = Config().parse_args(argv)
         if config.proj is None:
@@ -379,7 +386,6 @@ class TaskService(Service):
     def cmd_mkproj(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task mkproj <-p code> <name...>`
-
         Creates a new project with the given code and name.
         """
         config = Config().parse_args(argv)
@@ -390,6 +396,8 @@ class TaskService(Service):
 
         if config.user is not None:
             owner = User.objects.get(username=config.user)
+
+        assert config.args is not None
 
         name = " ".join(config.args)
         if len(name.strip()) == 0:
@@ -413,8 +421,7 @@ class TaskService(Service):
     def cmd_lsproj(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task lsproj [-u user]`
-
-        List the user's projects or the projects for the given user.
+        List your projects or the projects for the given user.
         """
         config = Config().parse_args(argv)
         user = ctx.user
@@ -432,9 +439,7 @@ class TaskService(Service):
     def cmd_setproj(self, ctx: ServiceCallContext, *argv: str) -> str:
         """
         `task setproj -p <code> [-u <user>]`
-
-        Set the user's default project, or the default project for
-        another given user.
+        Set your or another user's default project.
         """
 
         config = Config().parse_args(argv)

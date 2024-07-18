@@ -103,8 +103,8 @@ class LedgerService(Service):
         super().__init__()
         self.commands = CommandMap(self)
 
-    def _help_text(self) -> Optional[str]:
-        return "`cash [cmd]` Envelope accounting tools."
+    def _help_text(self) -> str:
+        return "`cash [cmd]`\n  Envelope accounting tools.  Type `cash help` for more info."
 
     def handles_function(self, fn_name: str) -> bool:
         return fn_name == "cash" or fn_name in SIGILS
@@ -137,18 +137,20 @@ class LedgerService(Service):
     def cmd_help(self, ctx: ServiceCallContext, command: Optional[str] = None) -> str:
         """
         `cash help [command]`
+        Get help about the available cash commands.
 
-        Get help about the available cash commands.  If `command` is not specified,
-        all commands are printed with their usage lines.
+        If `command` is not specified, all commands are printed with their
+        usage lines.
         """
         return format_command_help(self.commands, command)
 
     def cmd_summary(self, ctx: ServiceCallContext, *account_names: str) -> str:
         """
         `cash summary [accounts]`
+        Print the balances of the given accounts.
 
-        Print the balances of the given accounts.  If `account_names` is not provided,
-        balances for all accounts you have access to will be printed.
+        If `account_names` is not provided, balances for all accounts you
+        have access to will be printed.
 
         Allowed: Users with `ledger:all` or `ledger:summary` grants.
         """
@@ -176,7 +178,6 @@ class LedgerService(Service):
     ) -> str:
         """
         `cash setdefault <account_name> [username]`
-
         Set the default account for yourself or another user.
 
         Allowed: Users with `ledger:all` or `ledger:setdefault` grants.  Only users
@@ -199,7 +200,6 @@ class LedgerService(Service):
     def cmd_rmdefault(self, ctx: ServiceCallContext) -> str:
         """
         `cash rmdefault`
-
         Make it so you no longer have a default account.
 
         Allowed: Users with `ledger:all` or `ledger:rmdefault` grants.
@@ -215,7 +215,6 @@ class LedgerService(Service):
     ) -> str:
         """
         `cash mkdefaultaccount <account> [username]`
-
         Make an account and set it as the default for yourself or another user.
 
         Allowed: Users with `ledger:all` or `ledger:mkdefaultaccount` grants.
@@ -240,9 +239,10 @@ class LedgerService(Service):
     ) -> str:
         """
         `cash mkaccount <account> [username]`
+        Make an account.
 
-        Make an account.  If `username` is provided, that user will become
-        the account owner, otherwise you are the owner.
+        If `username` is provided, that user will become the account owner,
+        otherwise you are the owner.
 
         Allowed: Users with `ledger:all` or `ledger:mkaccount` grants.
         """
@@ -266,7 +266,6 @@ class LedgerService(Service):
     def cmd_rmaccount(self, ctx: ServiceCallContext, account_name: str) -> str:
         """
         `cash rmaccount <account>`
-
         Remove an account.
 
         Allowed: Users with `ledger:all` or `ledger:setdefault` grants and who have
@@ -288,8 +287,8 @@ class LedgerService(Service):
     ) -> str:
         """
         `cash seed (<amount>) | (<account> <amount>) | (<amount> <account>)`
+        Seed an account or your default account with money.
 
-        Seed the given account or your default account with an amount of money.
         Creates a transaction where the payout (from_account) is null, and the
         payin account is the given account.
 
@@ -301,6 +300,7 @@ class LedgerService(Service):
             amount = parse_money(account_or_amount)
             if amount_or_account is None:
                 account = Account.get_default_for_user(ctx.user)
+                assert account is not None
                 account_name = account.name
             else:
                 account = Account.objects.get(name=amount_or_account)
@@ -338,7 +338,6 @@ class LedgerService(Service):
     ) -> str:
         """
         `cash giveaccess <account> <username>`
-
         Give the given user access to the given account.
 
         Allowed: Users with `ledger:all` or `ledger:addaccess` grants, who have access
@@ -361,7 +360,6 @@ class LedgerService(Service):
     ) -> str:
         """
         `cash revokeaccess <account> <username>`
-
         Remove the given user's access to the given account.
 
         Allowed: Users with `ledger:all` or `ledger:rmaccess` grants, who have access
@@ -381,8 +379,8 @@ class LedgerService(Service):
     def cmd_spend(self, ctx: ServiceCallContext, *args) -> str:
         """
         `cash spend (<amount>) | (<account> <amount>) [notes...]`
-
         Spend from the given account or your default account an amount of money.
+
         Creates a transaction where the payout (from_account) is the given account
         and the payin (to_account) account is null.  If a note is specified,
         it is provided with the transaction otherwise it is null.
@@ -429,8 +427,8 @@ class LedgerService(Service):
     def cmd_ledger(self, ctx: ServiceCallContext, *args: str):
         """
         `cash ledger ([account...] | [agent=<username>...] | [<lookback_days>])...`
-
         Print a report of transactions matching the given criteria.
+
         If no agent or account criteria are provided, transactions from your default
         account are reported.  If you don't have a default account, all transactions
         where you are the agent are reported.
@@ -484,8 +482,8 @@ class LedgerService(Service):
     ) -> str:
         """
         `cash pay <from_account> <to_account> <amount> [notes...]`
-
         Create a transaction, moving funds from one account to another.
+
         Notes are added to the transaction if provided.
 
         Allowed: Users with `ledger:all` or `ledger:pay` grants, and who
