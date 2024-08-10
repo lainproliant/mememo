@@ -14,6 +14,11 @@ RUN mkdir /opt/mememo
 RUN chown mememo:mememo /opt/mememo
 VOLUME /opt/mememo
 
+# Update Archlinux PGP keys
+RUN pacman-key --init
+RUN pacman --noconfirm -Sy archlinux-keyring
+RUN pacman-key --populate archlinux
+
 # Install base dependencies.
 RUN pacman --noconfirm -Syu git python python-pipenv pyenv base-devel geckodriver firefox
 

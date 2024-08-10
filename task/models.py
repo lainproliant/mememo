@@ -154,4 +154,4 @@ class TaskUpdate(TimestampedModel):
     agent_name = models.TextField()
 
     def __str__(self) -> str:
-        return f"{self.task.quadcode} {self.created_at}: {self.agent_name} set {old_status} -> {new_status}"
+        return f"{self.task.quadcode} {self.created_at}: {self.agent_name} set {self.old_status} -> {self.new_status}"
