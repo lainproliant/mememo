@@ -84,13 +84,15 @@ class TaskService(Service):
         self.commands = CommandMap(self)
 
     def _help_text(self) -> str:
-        return f"`task [cmd]`\n  Task management system.  Type `task help` for more info."
+        return (
+            "`task [cmd]`\n  Task management system.  Type `task help` for more info."
+        )
 
     def handles_function(self, fn_name: str) -> bool:
         return fn_name == "task"
 
     async def invoke(
-        self, instance_id: str, ctx: Optional[ServiceCallContext] = None
+        self, instance_id: str, ctx: Optional[ServiceCallContext] = None, respond=False
     ) -> str:
         rt_assert(ctx is not None, "Not authorized.")
         assert ctx is not None

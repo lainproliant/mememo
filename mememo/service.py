@@ -115,7 +115,7 @@ class Service:
         pass
 
     async def invoke(
-        self, instance_id: str, ctx: Optional[ServiceCallContext] = None
+        self, instance_id: str, ctx: Optional[ServiceCallContext] = None, response=False
     ) -> str:
         raise NotImplementedError()
 
@@ -228,14 +228,12 @@ class DynamicService(Service, TimestampedBasePath):
             self.instance_id = instance_id
 
     async def invoke(
-        self, instance_id: str, ctx: Optional[ServiceCallContext] = None
+        self, instance_id: str, ctx: Optional[ServiceCallContext] = None, response=False
     ) -> str:
         if ctx is not None:
             await django_sync(self._check_service_grants)(ctx)
 
-        cached_result = self.cached_result()
-        if cached_result is not None:
-            return cached_result
+        sb = StringIO()
 
         sh = (
             Shell()
@@ -243,7 +241,6 @@ class DynamicService(Service, TimestampedBasePath):
             .env(self.definition.env)
             .env({"GIT_TERMINAL_PROMPT": "0"})
         )
-        sb = StringIO()
 
         def stdout_sink(s: str, _):
             print(s, file=sb)
@@ -251,16 +248,33 @@ class DynamicService(Service, TimestampedBasePath):
         if ctx is not None:
             sh = sh.env(await django_sync(ctx.to_env)())
 
-        await sh.run(
-            self.definition.run,
-            stdout=stdout_sink,
-            stderr=self.log_stderr,
-            check=True,
-        )
+        cached_result = self.cached_result()
+        if cached_result is not None:
+            sb.write(cached_result)
 
-        if self.cache_duration() is not None:
-            with open(self.cached_result_path(), "w") as outfile:
-                outfile.write(sb.getvalue())
+        else:
+            await sh.run(
+                self.definition.run,
+                stdout=stdout_sink,
+                stderr=self.log_stderr,
+                check=True,
+            )
+
+            if self.cache_duration() is not None:
+                with open(self.cached_result_path(), "w") as outfile:
+                    outfile.write(sb.getvalue())
+
+        if self.definition.respond and response:
+            output = sb.getvalue()
+            sb.seek(0)
+            sb.truncate()
+            await sh.run(
+                self.definition.respond,
+                stdin=lambda: output,
+                stdout=stdout_sink,
+                stderr=self.log_stderr,
+                check=True,
+            )
 
         return sb.getvalue()
 

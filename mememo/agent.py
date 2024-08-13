@@ -520,7 +520,7 @@ class MememoAgent(BivalveAgent):
 
         try:
             await service.prepare(self.service_manager.instance_id, ctx)
-            return await service.invoke(self.service_manager.instance_id, ctx)
+            return await service.invoke(self.service_manager.instance_id, ctx, response=True)
 
         except Exception as e:
             log.exception("Failed to invoke service handler.")

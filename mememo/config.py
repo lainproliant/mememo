@@ -54,7 +54,7 @@ class DiscordConfig(YAMLWizard):
     sigil: str = "!mememo"
 
     def get_client_timeout(self) -> int:
-        return parse_td(self.timeout).total_seconds()
+        return int(parse_td(self.timeout).total_seconds())
 
 
 # --------------------------------------------------------------------
@@ -68,6 +68,7 @@ class DynamicServiceDefinition(YAMLWizard):
     cache: Optional[str] = None
     refresh: Optional[str] = None
     schedule: Optional[str] = None
+    respond: Optional[str] = None
     required_grants: list[str] = field(default_factory=list)
     doc: Optional[str] = None
     usage: Optional[str] = None

@@ -18,6 +18,8 @@ selenium = "*"
 tabulate = "*"
 price-parser = "*"
 commandmap = "*"
+fastapi = "*"
+uvicorn = "*"
 
 [dev-packages]
 neovim = "*"
