@@ -116,7 +116,7 @@ class LedgerService(Service):
         return any(sigil == argv[0] for sigil in SIGILS)
 
     async def invoke(
-        self, instance_id: str, ctx: Optional[ServiceCallContext] = None, respond=False
+        self, instance_id: str, ctx: Optional[ServiceCallContext] = None, response=False
     ) -> str:
         rt_assert(ctx is not None, "Not authorized.")
         assert ctx
